@@ -15,36 +15,11 @@ Telegram-бот для автоматического распознавания
 
 ---
 
-## 🚀 Быстрый старт
+## 📋 Требования
 
-### 1. Требования
 *   Python 3.10+
 *   Токен Telegram-бота (от [@BotFather](https://t.me/BotFather))
 *   Бесплатный API-ключ Gemini (можно получить на [Google AI Studio](https://aistudio.google.com/))
-
-### 2. Установка
-Клонируйте репозиторий и установите необходимые зависимости:
-
-```bash
-git clone https://github.com/your-username/auto-docs-bot.git
-cd auto-docs-bot
-
-# Установка библиотек
-pip install python-docx aiogram google-genai docxtpl
-```
-
-### 3. Настройка переменных окружения
-Создайте файл `.env` в корне проекта или экспортируйте переменные в терминале:
-
-```bash
-export BOT_TOKEN="ваш_токен_телеграм_бота"
-export GEMINI_API_KEY="ваш_ключ_gemini_api"
-```
-
-### 4. Запуск
-```bash
-python3 bot/bot.py
-```
 
 ---
 
