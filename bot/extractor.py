@@ -1,6 +1,39 @@
 import os
 import json
+import time
+import logging
 from google import genai
+
+logger = logging.getLogger(__name__)
+
+def generate_with_fallback(client, contents):
+    models = ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash']
+    last_exception = None
+    
+    for model_name in models:
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting to generate content using model: {model_name} (attempt {attempt + 1})")
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                )
+                logger.info(f"Successfully generated content using model: {model_name}")
+                return response
+            except Exception as e:
+                last_exception = e
+                err_str = str(e)
+                logger.warning(f"Model {model_name} failed: {err_str}")
+                
+                # Check for transient Server Error (503) or Rate Limit (429) to decide if we retry or failover
+                if ("503" in err_str or "429" in err_str) and attempt < max_retries - 1:
+                    time.sleep(3)
+                else:
+                    break
+                    
+    # If we exhausted all models, raise the last encountered error
+    raise last_exception
 
 def extract_data_from_images(image_paths):
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -20,6 +53,11 @@ def extract_data_from_images(image_paths):
     - passport_issue_date (дата выдачи паспорта)
     - passport_issued_by (кем выдан)
     - address (адрес регистрации/проживания, если есть. Если нет - пустая строка "")
+    - patent_series (серия патента, обычно 2 цифры, например 30)
+    - patent_number (номер патента, 10 цифр)
+    - patent_issue_date (дата выдачи патента в формате ДД.ММ.ГГГГ)
+    - patent_expiry_date (срок действия патента - дата окончания в формате ДД.ММ.ГГГГ)
+    - profession (профессия/специальность в патенте, например Подсобный рабочий, Овощевод. Если нет - пиши Овощевод)
     
     Если чего-то нет на фото, пиши пустую строку. Никакого текста кроме валидного JSON!
     """
@@ -29,20 +67,8 @@ def extract_data_from_images(image_paths):
         f = client.files.upload(file=path)
         uploaded_files.append(f)
         
-    import time
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=[prompt] + uploaded_files,
-            )
-            break
-        except Exception as e:
-            if "503" in str(e) and attempt < max_retries - 1:
-                time.sleep(5)
-            else:
-                raise e
+    # Step 1: Extract initial data using model fallback
+    response = generate_with_fallback(client, [prompt] + uploaded_files)
     
     text = response.text
     import re
@@ -65,18 +91,8 @@ def extract_data_from_images(image_paths):
     Верни строго финальный, проверенный и исправленный JSON с теми же самыми ключами. Никакого лишнего текста!
     """
     
-    for attempt in range(max_retries):
-        try:
-            val_response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=[validator_prompt] + uploaded_files,
-            )
-            break
-        except Exception as e:
-            if "503" in str(e) and attempt < max_retries - 1:
-                time.sleep(5)
-            else:
-                raise e
+    # Step 2: Run Auditor verification using model fallback
+    val_response = generate_with_fallback(client, [validator_prompt] + uploaded_files)
 
     val_text = val_response.text
     val_match = re.search(r'```json\n(.*?)\n```', val_text, re.DOTALL)
