@@ -5,6 +5,21 @@ from docx_populator import fill_conclusion_document, fill_termination_document
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def get_short_name(full_name):
+    if not full_name:
+        return ""
+    # Capitalize parts just in case
+    parts = [p.capitalize() for p in full_name.split()]
+    if len(parts) == 0:
+        return ""
+    surname = parts[0]
+    initials = ""
+    if len(parts) > 1:
+        initials += f" {parts[1][0]}."
+    if len(parts) > 2:
+        initials += f"{parts[2][0]}."
+    return f"{surname}{initials}"
+
 def generate_documents(data, output_dir):
     # Automatically compute patent expiry date (1 year after issue date) if missing or empty
     if data.get('patent_issue_date'):
@@ -27,6 +42,7 @@ def generate_documents(data, output_dir):
     doc_data = data.copy()
     doc_data['contract_start_date'] = "14.05.2026"
     doc_data['contract_end_date'] = "30.11.2026"
+    doc_data['short_name'] = get_short_name(data.get('full_name', ''))
     
     template_contract = os.path.join(BASE_DIR, "templates", "template_contract.docx")
     doc_c = DocxTemplate(template_contract)
