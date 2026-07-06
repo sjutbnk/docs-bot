@@ -1,4 +1,5 @@
 import docx
+import mappings
 
 def set_cell_text_preserve_format(cell, text):
     if text is None:
@@ -89,9 +90,9 @@ def fill_passport_issued_by(doc, text):
     # Line 3 (13 chars) -> Table 31, starts at cell 0
     line3 = text_upper[56:69]
     
-    fill_grid_cells(doc.tables[29], 0, 1, 28, line1)
-    fill_grid_cells(doc.tables[30], 0, 0, 28, line2)
-    fill_grid_cells(doc.tables[31], 0, 0, 13, line3)
+    fill_grid_cells(doc.tables[mappings.PASSPORT_ISSUED_T1], 0, 1, 28, line1)
+    fill_grid_cells(doc.tables[mappings.PASSPORT_ISSUED_T2], 0, 0, 28, line2)
+    fill_grid_cells(doc.tables[mappings.PASSPORT_ISSUED_T3], 0, 0, 13, line3)
 
 def fill_common_fields(doc, data):
     full_name = data.get('full_name', '')
@@ -103,43 +104,43 @@ def fill_common_fields(doc, data):
     patronymic = " ".join(name_parts[2:]) if len(name_parts) > 2 else ""
     
     # 1. Name fields
-    fill_grid_cells(doc.tables[22], 0, 1, 28, surname)
-    fill_grid_cells(doc.tables[23], 0, 1, 28, name)
-    fill_grid_cells(doc.tables[24], 0, 1, 28, patronymic)
-    fill_grid_cells(doc.tables[24], 1, 1, 28, "") # Clear second patronymic line
+    fill_grid_cells(doc.tables[mappings.SURNAME_TABLE], 0, 1, 28, surname)
+    fill_grid_cells(doc.tables[mappings.NAME_TABLE], 0, 1, 28, name)
+    fill_grid_cells(doc.tables[mappings.PATRONYMIC_TABLE], 0, 1, 28, patronymic)
+    fill_grid_cells(doc.tables[mappings.PATRONYMIC_TABLE], 1, 1, 28, "") # Clear second patronymic line
     
     # 2. Citizenship
-    fill_grid_cells(doc.tables[25], 0, 1, 27, data.get('citizenship', ''))
+    fill_grid_cells(doc.tables[mappings.CITIZENSHIP_TABLE], 0, 1, 27, data.get('citizenship', ''))
     
     # 3. DOB
-    fill_date_cells(doc.tables[26], 0, data.get('birth_date', ''), [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
+    fill_date_cells(doc.tables[mappings.DOB_TABLE], 0, data.get('birth_date', ''), *mappings.DOB_CELLS)
     
     # 4. Passport Series / Number / Issue Date
-    fill_grid_cells(doc.tables[28], 0, 1, 7, data.get('passport_series', ''))
-    fill_grid_cells(doc.tables[28], 0, 9, 9, data.get('passport_number', ''))
-    fill_date_cells(doc.tables[28], 0, data.get('passport_issue_date', ''), [20, 21], [24, 25], [28, 29, 30, 31], [22, 23, 26, 27])
+    fill_grid_cells(doc.tables[mappings.PASSPORT_TABLE], 0, 1, 7, data.get('passport_series', ''))
+    fill_grid_cells(doc.tables[mappings.PASSPORT_TABLE], 0, 9, 9, data.get('passport_number', ''))
+    fill_date_cells(doc.tables[mappings.PASSPORT_TABLE], 0, data.get('passport_issue_date', ''), *mappings.PASSPORT_DATE_CELLS)
     
     # 5. Passport Issued By
     fill_passport_issued_by(doc, data.get('passport_issued_by', ''))
     
     # 6. Patent Series / Number / Issue Date
-    fill_grid_cells(doc.tables[33], 1, 1, 7, data.get('patent_series', ''))
-    fill_grid_cells(doc.tables[33], 1, 9, 10, data.get('patent_number', ''))
-    fill_date_cells(doc.tables[33], 1, data.get('patent_issue_date', ''), [21, 22], [25, 26], [29, 30, 31, 32], [23, 24, 27, 28, 33])
+    fill_grid_cells(doc.tables[mappings.PATENT_TABLE], 1, 1, 7, data.get('patent_series', ''))
+    fill_grid_cells(doc.tables[mappings.PATENT_TABLE], 1, 9, 10, data.get('patent_number', ''))
+    fill_date_cells(doc.tables[mappings.PATENT_TABLE], 1, data.get('patent_issue_date', ''), *mappings.PATENT_DATE_CELLS)
     
     # 7. Patent Validity
-    fill_date_cells(doc.tables[36], 0, data.get('patent_issue_date', ''), [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
-    fill_date_cells(doc.tables[36], 0, data.get('patent_expiry_date', ''), [12, 13], [15, 16], [18, 19, 20, 21], [14, 17])
+    fill_date_cells(doc.tables[mappings.PATENT_VALIDITY_TABLE], 0, data.get('patent_issue_date', ''), *mappings.PATENT_VALIDITY_START_CELLS)
+    fill_date_cells(doc.tables[mappings.PATENT_VALIDITY_TABLE], 0, data.get('patent_expiry_date', ''), *mappings.PATENT_VALIDITY_END_CELLS)
     
     # 8. Profession
-    fill_grid_cells(doc.tables[41], 0, 0, 28, data.get('profession', 'Овощевод'))
+    fill_grid_cells(doc.tables[mappings.PROFESSION_TABLE], 0, 0, 28, data.get('profession', 'Овощевод'))
 
 def fill_conclusion_document(doc, data):
     fill_common_fields(doc, data)
     # Contract conclusion date (Table 46)
-    fill_date_cells(doc.tables[46], 1, "14.05.2026", [1, 2], [4, 5], [8, 9, 10, 11], [3, 6, 7])
+    fill_date_cells(doc.tables[mappings.CONTRACT_DATE_TABLE], 1, "14.05.2026", *mappings.CONTRACT_DATE_CELLS)
 
 def fill_termination_document(doc, data):
     fill_common_fields(doc, data)
     # Contract termination date (Table 46)
-    fill_date_cells(doc.tables[46], 1, "30.11.2026", [1, 2], [4, 5], [8, 9, 10, 11], [3, 6, 7])
+    fill_date_cells(doc.tables[mappings.CONTRACT_DATE_TABLE], 1, "30.11.2026", *mappings.CONTRACT_DATE_CELLS)
