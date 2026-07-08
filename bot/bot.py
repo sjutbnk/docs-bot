@@ -1,6 +1,7 @@
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
+from aiogram.fsm.storage.memory import MemoryStorage
 
 import config
 from handlers import router
@@ -14,7 +15,9 @@ async def main():
         return
         
     bot = Bot(token=config.BOT_TOKEN)
-    dp = Dispatcher()
+    
+    # Initialize dispatcher with MemoryStorage for FSM state tracking
+    dp = Dispatcher(storage=MemoryStorage())
     
     # Register router containing all handlers
     dp.include_router(router)

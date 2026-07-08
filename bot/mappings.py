@@ -1,6 +1,7 @@
 # Index mappings for filling grid and date cells in the МВД notification template tables.
 
 # Table index mappings
+PHONE_TABLE = 21
 SURNAME_TABLE = 22
 NAME_TABLE = 23
 PATRONYMIC_TABLE = 24
