@@ -208,7 +208,7 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
         await state.set_state(DocumentFlow.waiting_for_inn)
     else:
         await state.update_data(inn=inn)
-        await reply_to.answer("📱 Введите контактный телефон сотрудника (11 цифр, например 89608626599):")
+        await reply_to.answer("📱 Введите контактный телефон сотрудника (11 цифр, например 89000000000):")
         await state.set_state(DocumentFlow.waiting_for_phone)
 
 
@@ -223,7 +223,7 @@ async def process_inn(message: types.Message, state: FSMContext):
         await message.answer("❌ ИНН должен состоять ровно из 12 цифр. Попробуйте ещё раз или введите `-`:")
         return
     await state.update_data(inn=val if val != "-" else "")
-    await message.answer("📱 Введите контактный телефон сотрудника (11 цифр, например 89608626599):")
+    await message.answer("📱 Введите контактный телефон сотрудника (11 цифр, например 89000000000):")
     await state.set_state(DocumentFlow.waiting_for_phone)
 
 
@@ -231,7 +231,7 @@ async def process_inn(message: types.Message, state: FSMContext):
 async def process_phone(message: types.Message, state: FSMContext):
     digits = "".join(c for c in message.text if c.isdigit())
     if not (10 <= len(digits) <= 15):
-        await message.answer("❌ Некорректный номер телефона. Введите, например: 89608626599")
+        await message.answer("❌ Некорректный номер телефона. Введите, например: 89000000000")
         return
     await state.update_data(phone=digits)
     await message.answer("📄 Введите номер полиса ДМС сотрудника или `-` если отсутствует:")
