@@ -34,11 +34,28 @@ def _read_docx_as_text(path: str) -> str:
 
 def _parse_json_response(text: str) -> dict:
     """Extract and parse a JSON block from model response text."""
-    # Strip markdown code fences if present
-    match = re.search(r'```(?:json)?\n(.*?)\n```', text, re.DOTALL)
+    # Strip markdown code fences with optional language tag and surrounding whitespace
+    match = re.search(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL)
     if match:
         text = match.group(1)
-    return json.loads(text.strip())
+    data = json.loads(text.strip())
+    return _flatten_json(data)
+
+
+def _flatten_json(data: dict) -> dict:
+    """
+    Flatten a potentially nested dict returned by the model into a single-level dict.
+    The model sometimes wraps fields inside section objects (e.g. "Данные сотрудника": {...}).
+    We recursively merge all leaf string values into the top level.
+    """
+    result = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            # Recursively flatten nested dicts
+            result.update(_flatten_json(value))
+        elif not isinstance(value, (list, dict)):
+            result[key] = value
+    return result
 
 
 def _generate_with_fallback(client, contents):
@@ -114,7 +131,21 @@ def extract_data_from_images(image_paths: list) -> dict:
                 config.logger.error(f"Failed to read TXT {path}: {e}")
         else:
             config.logger.info(f"Uploading to Gemini Files API: {path}")
-            uploaded_files.append(client.files.upload(file=path))
+            # Gemini SDK cannot handle non-ASCII characters in file paths.
+            # Copy to a temp file with a safe ASCII name before uploading.
+            import tempfile
+            import shutil
+            safe_ext = ext if ext else ".bin"
+            with tempfile.NamedTemporaryFile(suffix=safe_ext, delete=False) as tmp:
+                tmp_path = tmp.name
+            try:
+                shutil.copy2(path, tmp_path)
+                uploaded_files.append(client.files.upload(file=tmp_path))
+            finally:
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
 
     # Build prompt including any locally-read text
     extraction_prompt = prompts.EXTRACTION_PROMPT

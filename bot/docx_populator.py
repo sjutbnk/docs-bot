@@ -32,27 +32,38 @@ def _set_cell_text(cell, text: str):
         p.text = text
 
 
+def _unique_cells(row):
+    """Return list of unique cells from a row, skipping merged-cell duplicates."""
+    seen = set()
+    result = []
+    for cell in row.cells:
+        if cell._tc not in seen:
+            seen.add(cell._tc)
+            result.append(cell)
+    return result
+
+
 def _fill_grid(table, row_idx: int, start_col: int, num_cells: int, value: str):
-    """Write value character-by-character into consecutive grid cells."""
+    """Write value character-by-character into consecutive unique grid cells."""
     if not table or row_idx >= len(table.rows):
         return
-    row = table.rows[row_idx]
+    cells = _unique_cells(table.rows[row_idx])
     chars = list((value or "").upper())
     for i in range(num_cells):
         col = start_col + i
-        if col < len(row.cells):
-            _set_cell_text(row.cells[col], chars[i] if i < len(chars) else "")
+        if col < len(cells):
+            _set_cell_text(cells[col], chars[i] if i < len(chars) else "")
 
 
 def _fill_date(table, row_idx: int, date_str: str,
                day_idx, month_idx, year_idx, spacer_idx=None):
     """
-    Write a DD.MM.YYYY date into separate day/month/year grid cells.
-    Accepts index lists for each component.
+    Write a DD.MM.YYYY date into separate day/month/year unique grid cells.
+    All indices refer to deduplicated cell positions (no merged-cell duplicates).
     """
     if not table or row_idx >= len(table.rows):
         return
-    row = table.rows[row_idx]
+    cells = _unique_cells(table.rows[row_idx])
 
     parts = (date_str or "").split(".")
     day   = parts[0] if len(parts) > 0 else ""
@@ -61,18 +72,18 @@ def _fill_date(table, row_idx: int, date_str: str,
 
     # Clear all target cells first
     for idx in list(day_idx) + list(month_idx) + list(year_idx) + list(spacer_idx or []):
-        if idx < len(row.cells):
-            _set_cell_text(row.cells[idx], "")
+        if idx < len(cells):
+            _set_cell_text(cells[idx], "")
 
     for i, idx in enumerate(day_idx):
-        if idx < len(row.cells):
-            _set_cell_text(row.cells[idx], day[i] if i < len(day) else "")
+        if idx < len(cells):
+            _set_cell_text(cells[idx], day[i] if i < len(day) else "")
     for i, idx in enumerate(month_idx):
-        if idx < len(row.cells):
-            _set_cell_text(row.cells[idx], month[i] if i < len(month) else "")
+        if idx < len(cells):
+            _set_cell_text(cells[idx], month[i] if i < len(month) else "")
     for i, idx in enumerate(year_idx):
-        if idx < len(row.cells):
-            _set_cell_text(row.cells[idx], year[i] if i < len(year) else "")
+        if idx < len(cells):
+            _set_cell_text(cells[idx], year[i] if i < len(year) else "")
 
 
 # ---------------------------------------------------------------------------
@@ -209,61 +220,64 @@ def fill_patent_notification_document(doc, data: dict):
 
     _fill_grid(doc.tables[6], 0, 1, 28, data.get("citizenship") or "")
 
+    # T7: label|D1|D2|sep|M1|M2|sep|Y1|Y2|Y3|Y4  (11 cells, indices 1-10)
     _fill_date(doc.tables[7], 0, data.get("birth_date") or "",
-               [2, 3], [6, 7], [10, 11, 12, 13], [4, 5, 8, 9])
+               [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
 
-    # Passport series / number
-    _fill_grid(doc.tables[9], 0, 1, 4, data.get("passport_series") or "")
-    _fill_grid(doc.tables[9], 0, 9, 9, data.get("passport_number") or "")
+    # Passport series (C1-C2=2 chars) / number (C9-C16=8 chars)
+    _fill_grid(doc.tables[9], 0, 1, 2, data.get("passport_series") or "")
+    _fill_grid(doc.tables[9], 0, 9, 8, data.get("passport_number") or "")
 
-    # Passport issue date
+    # T10: label|D1|D2|sep|M1|M2|sep|Y1|Y2|Y3|Y4  (11 cells, same as T7)
     _fill_date(doc.tables[10], 0, data.get("passport_issue_date") or "",
-               [2, 3], [6, 7], [10, 11, 12, 13], [4, 5, 8, 9])
+               [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
 
-    # Passport issued-by (МВД code only, across tables 11 and 12)
+    # Passport issued-by: T11 (C1-C25) and T12 (C0-C25)
     issued = utils.clean_passport_issued_by(data.get("passport_issued_by") or "").upper()
     _fill_grid(doc.tables[11], 0, 1, 25, issued[:25])
     _fill_grid(doc.tables[12], 0, 0, 26, issued[25:51])
 
-    # Patent details
-    _fill_grid(doc.tables[13], 0, 1,  7, data.get("patent_series") or "")
+    # Patent: series (C1-C2=2 chars), number (C9-C18=10 chars),
+    # date: C20=D1, C21=D2, C22=sep, C23=M1, C24=M2, C25=sep, C26=Y1, C27=Y2, C28=Y3, C29=Y4
+    _fill_grid(doc.tables[13], 0, 1, 2, data.get("patent_series") or "")
     _fill_grid(doc.tables[13], 0, 9, 10, data.get("patent_number") or "")
     _fill_date(doc.tables[13], 0, data.get("patent_issue_date") or "",
-               [21, 22], [25, 26], [29, 30, 31, 32], [23, 24, 27, 28])
+               [20, 21], [23, 24], [26, 27, 28, 29], [22, 25])
 
-    # Profession — always blank
+    # Profession — always blank (3 rows × 31 chars)
     _fill_grid(doc.tables[14], 0, 0, 31, "")
     _fill_grid(doc.tables[15], 0, 0, 31, "")
     _fill_grid(doc.tables[16], 0, 0, 31, "")
 
-    # Place of work
+    # Place of work (T17 + T18, 31 chars each)
     work_addr = str(data.get("work_address") or data.get("employer_address") or "").upper()
     _fill_grid(doc.tables[17], 0, 0, 31, work_addr[:31])
     _fill_grid(doc.tables[18], 0, 0, 31, work_addr[31:62])
 
-    # Contract type checkbox (GPH ✓)
+    # Contract type checkbox — cell C2 = "V" for ГПД (civil contract)
     _set_cell_text(doc.tables[20].rows[0].cells[2], "V")
 
-    # Contract date
+    # Contract date (T22 row 1): label|D1|D2|sep|M1|M2|sep|Y1|Y2|Y3|Y4
     _fill_date(doc.tables[22], 1, "14.05.2026",
-               [2, 3], [6, 7], [10, 11, 12, 13], [4, 5, 8, 9])
+               [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
 
-    # Employee INN
+    # Employee INN (T23, C1-C12)
     _fill_grid(doc.tables[23], 0, 1, 12, str(data.get("inn") or ""))
 
-    # DMS policy series + number
-    _fill_grid(doc.tables[27], 0, 1,  5, "MRF")
+    # DMS policy series (C1-C3) + number (C7-C18)
+    _fill_grid(doc.tables[27], 0, 1, 3, "MRF")
     _fill_grid(doc.tables[27], 0, 7, 12, str(data.get("dms_number") or ""))
 
-    # DMS issue date (uses contract start date as proxy)
+    # DMS issue date (T28 row 0, same compact format)
     _fill_date(doc.tables[28], 0, "14.05.2026",
-               [2, 3], [6, 7], [10, 11, 12, 13], [4, 5, 8, 9])
+               [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
 
-    # Employee contact phone
+    # Employee contact phone (T29, C1-C10 = 10 digits)
     emp_phone = "".join(c for c in str(data.get("phone") or "") if c.isdigit())
     _fill_grid(doc.tables[29], 0, 1, 11, emp_phone)
 
-    # Signature full name and submission date
+    # Submitter name (T44) and submission date (T45)
+    # T45: «|day|»|month|20|YY|г.  — C1=day(2), C3=month(2), C5=last2digits of year
     _set_cell_text(doc.tables[44].rows[0].cells[1], full_name.upper())
     _set_cell_text(doc.tables[45].rows[0].cells[1], "14")
     _set_cell_text(doc.tables[45].rows[0].cells[3], "05")
