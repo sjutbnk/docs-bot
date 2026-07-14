@@ -9,28 +9,29 @@ from handlers import router
 async def main():
     if not config.BOT_TOKEN:
         print("\n❌ ОШИБКА: Переменная BOT_TOKEN не задана!")
-        print("Сделайте одно из двух:")
-        print("1. Введите в терминале: export BOT_TOKEN=\"ваш_токен\"")
-        print("2. Либо создайте файл .env в корне проекта и запишите туда: BOT_TOKEN=ваш_токен\n")
+        print("Создайте файл .env в корне проекта: BOT_TOKEN=ваш_токен")
+        return
+
+    if not config.GEMINI_API_KEY:
+        print("\n❌ ОШИБКА: Переменная GEMINI_API_KEY не задана!")
+        print("Создайте файл .env в корне проекта: GEMINI_API_KEY=ваш_ключ")
         return
         
     bot = Bot(token=config.BOT_TOKEN)
-    
-    # Initialize dispatcher with MemoryStorage for FSM state tracking
-    dp = Dispatcher(storage=MemoryStorage())
-    
-    # Register router containing all handlers
+    dp  = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
-    
-    # Set bot commands menu
-    commands = [
-        BotCommand(command="start", description="Перезапустить бота / Инструкция"),
+
+    await bot.set_my_commands([
+        BotCommand(command="start",    description="Перезапустить бота / Инструкция"),
         BotCommand(command="generate", description="Сгенерировать документы из файлов"),
-    ]
-    await bot.set_my_commands(commands)
-    
-    config.logger.info("Starting bot polling loop...")
-    await dp.start_polling(bot)
+    ])
+
+    config.logger.info("Bot started.")
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
+        config.logger.info("Bot session closed.")
 
 if __name__ == "__main__":
     try:

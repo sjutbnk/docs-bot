@@ -1,30 +1,47 @@
-def get_short_name(full_name):
-    if not full_name:
-        return ""
-    # Capitalize parts just in case
-    parts = [p.capitalize() for p in full_name.split()]
-    if len(parts) == 0:
-        return ""
-    surname = parts[0]
-    initials = ""
-    if len(parts) > 1:
-        initials += f" {parts[1][0]}."
-    if len(parts) > 2:
-        initials += f"{parts[2][0]}."
-    return f"{surname}{initials}"
+import re
 
-def compute_patent_expiry_date(issue_date_str):
+
+def get_short_name(full_name: str) -> str:
+    """Return surname + initials, e.g. 'Жобборов Х.И.'"""
+    if not full_name or not full_name.strip():
+        return ""
+    parts = [p.capitalize() for p in full_name.split()]
+    if not parts:
+        return ""
+    result = parts[0]
+    if len(parts) > 1:
+        result += f" {parts[1][0]}."
+    if len(parts) > 2:
+        result += f"{parts[2][0]}."
+    return result
+
+
+def compute_patent_expiry_date(issue_date_str: str) -> str:
+    """
+    Compute patent expiry date as exactly 1 year after the issue date.
+    Input/output format: DD.MM.YYYY
+    """
     if not issue_date_str:
         return ""
-    issue_date_str = str(issue_date_str).strip()
     try:
-        parts = issue_date_str.split('.')
+        parts = str(issue_date_str).strip().split('.')
         if len(parts) == 3:
-            day = int(parts[0])
-            month = int(parts[1])
-            year = int(parts[2])
-            # In Russia, patent is valid for 1 year from issue date.
+            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
             return f"{day:02d}.{month:02d}.{year + 1}"
     except Exception:
         pass
     return ""
+
+
+def clean_passport_issued_by(issued_by: str) -> str:
+    """
+    Extract only the numeric unit code from МВД passport issued-by field.
+    E.g. 'МВД 22232 по Астраханской области' → '22232'
+    If no match, return the original string trimmed.
+    """
+    if not issued_by:
+        return ""
+    match = re.search(r'МВД[^\d]*(\d{3,6})', str(issued_by), re.IGNORECASE)
+    if match:
+        return match.group(1)
+    return str(issued_by).strip()
