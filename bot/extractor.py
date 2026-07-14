@@ -1,6 +1,8 @@
 import json
 import re
 import os
+import shutil
+import tempfile
 import time
 import docx
 from google import genai
@@ -51,9 +53,10 @@ def _flatten_json(data: dict) -> dict:
     result = {}
     for key, value in data.items():
         if isinstance(value, dict):
-            # Recursively flatten nested dicts
             result.update(_flatten_json(value))
-        elif not isinstance(value, (list, dict)):
+        elif isinstance(value, list):
+            config.logger.warning(f"_flatten_json: dropping list value for key '{key}': {value}")
+        else:
             result[key] = value
     return result
 
@@ -133,8 +136,6 @@ def extract_data_from_images(image_paths: list) -> dict:
             config.logger.info(f"Uploading to Gemini Files API: {path}")
             # Gemini SDK cannot handle non-ASCII characters in file paths.
             # Copy to a temp file with a safe ASCII name before uploading.
-            import tempfile
-            import shutil
             safe_ext = ext if ext else ".bin"
             with tempfile.NamedTemporaryFile(suffix=safe_ext, delete=False) as tmp:
                 tmp_path = tmp.name

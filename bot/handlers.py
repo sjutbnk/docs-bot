@@ -303,17 +303,17 @@ async def cb_generate(callback: types.CallbackQuery):
         out_dir = os.path.join(config.OUTPUT_DIR, str(user_id))
         os.makedirs(out_dir, exist_ok=True)
 
+        action = callback.data
         contract_path, conclusion_path, termination_path, patent_path = \
             generator.generate_documents(data, out_dir)
 
-        action = callback.data
-        if action in ("gen_contract",      "gen_all"):
+        if action in ("gen_contract", "gen_all"):
             await callback.message.answer_document(FSInputFile(contract_path))
-        if action in ("gen_conclusion",    "gen_all"):
+        if action in ("gen_conclusion", "gen_all"):
             await callback.message.answer_document(FSInputFile(conclusion_path))
-        if action in ("gen_termination",   "gen_all"):
+        if action in ("gen_termination", "gen_all"):
             await callback.message.answer_document(FSInputFile(termination_path))
-        if action in ("gen_patent_notif",  "gen_all"):
+        if action in ("gen_patent_notif", "gen_all"):
             await callback.message.answer_document(FSInputFile(patent_path))
 
     except Exception as e:

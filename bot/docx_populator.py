@@ -187,7 +187,10 @@ def _fill_conclusion_employee_fields(doc, data: dict):
     _fill_date(doc.tables[36], 0, data.get("patent_expiry_date") or "", *mappings.CONCL_PATENT_VALIDITY_END_CELLS)
 
     # Profession
-    _fill_grid(doc.tables[41], 0, 0, 33, "")# ---------------------------------------------------------------------------
+    _fill_grid(doc.tables[41], 0, 0, 33, "")
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -202,12 +205,14 @@ def _fill_conclusion_employer_block(doc, data: dict):
         emp_addr = str(data.get("employer_address") or "").upper()
 
         # Clear existing checkboxes (T4 = Юрлицо, T5 = ИП)
-        _set_cell_text(_unique_cells(doc.tables[4].rows[0])[0], "")
-        _set_cell_text(_unique_cells(doc.tables[5].rows[0])[0], "")
+        cells_t4 = _unique_cells(doc.tables[4].rows[0])
+        cells_t5 = _unique_cells(doc.tables[5].rows[0])
+        _set_cell_text(cells_t4[0], "")
+        _set_cell_text(cells_t5[0], "")
         if emp_type == "ИП":
-            _set_cell_text(_unique_cells(doc.tables[5].rows[0])[0], "X")
+            _set_cell_text(cells_t5[0], "X")
         else:
-            _set_cell_text(_unique_cells(doc.tables[4].rows[0])[0], "X")
+            _set_cell_text(cells_t4[0], "X")
 
         # Employer name (T9-T13, 34 chars each)
         for row_offset, t_idx in enumerate(range(9, 14)):
@@ -304,8 +309,9 @@ def fill_patent_notification_document(doc, data: dict):
         _fill_grid(doc.tables[40], 0, 0, 31, emp_addr[31:62])
         _fill_grid(doc.tables[41], 0, 0, 31, emp_addr[62:93])
 
-        # Employer contact phone (hardcoded per partner card)
-        _fill_grid(doc.tables[43], 0, 1, 11, "89608626599")
+        # Employer contact phone from partner card (if available)
+        emp_phone = "".join(c for c in str(data.get("employer_phone") or "") if c.isdigit())
+        _fill_grid(doc.tables[43], 0, 1, 11, emp_phone)
 
     # ── Employee block ──────────────────────────────────────────────────────
     full_name  = str(data.get("full_name") or "")

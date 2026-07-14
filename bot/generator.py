@@ -1,4 +1,6 @@
 import os
+import shutil
+import tempfile
 import docx
 from docxtpl import DocxTemplate
 
@@ -50,6 +52,8 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
     contract_data["short_name"]          = utils.get_short_name(data.get("full_name") or "")
     
     # Extract clean FIO for short name (e.g. "Ким В.Р.")
+    # employer_name at this point is already cleaned by clean_employer_name,
+    # so we just strip the legal prefix and get the FIO.
     pure_fio = utils.extract_employer_fio(data.get("employer_name") or "")
     contract_data["short_employer_name"] = utils.get_short_name(pure_fio)
 

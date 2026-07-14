@@ -25,18 +25,18 @@ def extract_employer_fio(employer_name: str) -> str:
         return ""
     text = str(employer_name).strip()
     
-    # Prefixes to strip (longest first)
+    # Prefixes to strip (longest first to avoid partial matches)
     prefixes = [
         r'индивидуальный\s+предприниматель\s+глава\s+крестьянского\s*\(?фермерского\)?\s*хозяйства',
         r'индивидуальный\s+предприниматель',
         r'глава\s+крестьянского\s*\(?фермерского\)?\s*хозяйства',
         r'общество\s+с\s+ограниченной\s+ответственностью',
-        r'гкфх',
-        r'ип',
-        r'ооо',
-        r'ао',
-        r'пао',
-        r'зао'
+        r'\bгкфх\b',
+        r'\bип\b',   # word boundary: don't strip 'ип' inside names like 'Ипатьев'
+        r'\bооо\b',
+        r'\bао\b',
+        r'\bпао\b',
+        r'\bзао\b',
     ]
     for p in prefixes:
         text = re.sub(p, '', text, flags=re.IGNORECASE).strip()
