@@ -23,3 +23,10 @@ PATENT_DATE_CELLS = ([21, 22], [25, 26], [29, 30, 31, 32], [23, 24, 27, 28, 33])
 PATENT_VALIDITY_START_CELLS = ([1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
 PATENT_VALIDITY_END_CELLS = ([12, 13], [15, 16], [18, 19, 20, 21], [14, 17])
 CONTRACT_DATE_CELLS = ([1, 2], [4, 5], [8, 9, 10, 11], [3, 6, 7])
+
+# Specific cell mappings for Conclusion / Termination notifications
+CONCL_PASSPORT_DATE_CELLS = ([20, 21], [23, 24], [26, 27, 28, 29], [22, 25])
+CONCL_PATENT_DATE_CELLS = ([20, 21], [23, 24], [26, 27, 28, 29], [22, 25])
+CONCL_PATENT_VALIDITY_START_CELLS = ([1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
+CONCL_PATENT_VALIDITY_END_CELLS = ([12, 13], [15, 16], [18, 19, 20, 21], [14, 17])
+CONCL_CONTRACT_DATE_CELLS = ([1, 2], [4, 5], [7, 8, 9, 10], [3, 6])

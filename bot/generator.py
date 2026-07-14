@@ -37,6 +37,10 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
             data["passport_issued_by"]
         )
 
+    # Clean any duplicate prefixes in the employer name that OCR might have merged
+    if data.get("employer_name"):
+        data["employer_name"] = utils.clean_employer_name(data["employer_name"])
+
     safe_name = (data.get("full_name") or "Сотрудник").replace(" ", "_")
 
     # ── Contract (Jinja2 template) ──────────────────────────────────────────

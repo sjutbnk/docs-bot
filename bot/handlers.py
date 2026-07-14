@@ -47,16 +47,26 @@ def _validate_date(value: str) -> bool:
     return bool(re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value))
 
 
-def _build_generation_menu():
+def _build_generation_menu(citizenship: str = ""):
     builder = InlineKeyboardBuilder()
+    
+    citizen = citizenship.strip().lower()
+    if "узбек" in citizen:
+        cit_str = "от узбека"
+    elif "таджик" in citizen:
+        cit_str = "от таджика"
+    elif citizen:
+        cit_str = f"от гражданина {citizenship}"
+    else:
+        cit_str = "от иностранца"
+
     builder.button(text="Договор о приеме (DOCX)",           callback_data="gen_contract")
     builder.button(text="Уведомление о приеме (DOCX)",       callback_data="gen_conclusion")
     builder.button(text="Уведомление о расторжении (DOCX)",  callback_data="gen_termination")
-    builder.button(text="Уведомление о патенте (DOCX)",      callback_data="gen_patent_notif")
+    builder.button(text=f"Уведомление о приеме ({cit_str})", callback_data="gen_patent_notif")
     builder.button(text="Сделать все 4 документа",           callback_data="gen_all")
     builder.adjust(1)
     return builder.as_markup()
-
 
 async def _show_generation_menu(message: types.Message, state: FSMContext):
     """Merge all gathered FSM data back into extracted_data and show the menu."""
@@ -80,7 +90,7 @@ async def _show_generation_menu(message: types.Message, state: FSMContext):
         f"Полис ДМС: {extracted.get('dms_number') or 'Не указан'} "
         f"(до {extracted.get('dms_date') or '—'})\n\n"
         f"Выберите документы для формирования:",
-        reply_markup=_build_generation_menu(),
+        reply_markup=_build_generation_menu(extracted.get('citizenship', '')),
     )
 
 

@@ -144,7 +144,50 @@ def _fill_employee_fields(doc, data: dict):
     _fill_grid(doc.tables[mappings.PROFESSION_TABLE], 0, 0, 34, "")
 
 
-# ---------------------------------------------------------------------------
+def _fill_conclusion_employee_fields(doc, data: dict):
+    """
+    Populate common employee fields specifically for Conclusion/Termination templates,
+    which have a slightly different cell layout compared to the Patent template.
+    """
+    name_parts = str(data.get("full_name") or "").split()
+    surname    = name_parts[0] if len(name_parts) > 0 else ""
+    first_name = name_parts[1] if len(name_parts) > 1 else ""
+    patronymic = " ".join(name_parts[2:]) if len(name_parts) > 2 else ""
+
+    phone = "".join(c for c in str(data.get("phone") or "") if c.isdigit())
+    _fill_grid(doc.tables[21], 0, 1, 11, phone)
+
+    _fill_grid(doc.tables[22], 0, 1, 33, surname)
+    _fill_grid(doc.tables[23], 0, 1, 33, first_name)
+    _fill_grid(doc.tables[24], 0, 1, 33, patronymic)
+    _fill_grid(doc.tables[24], 1, 1, 33, "")
+
+    _fill_grid(doc.tables[25], 0, 1, 33, data.get("citizenship") or "")
+
+    _fill_date(doc.tables[26], 0, data.get("birth_date") or "", *mappings.DOB_CELLS)
+
+    # Conclusion Passport Table is 28
+    _fill_grid(doc.tables[28], 0, 1, 7, data.get("passport_series") or "")
+    _fill_grid(doc.tables[28], 0, 9, 9, data.get("passport_number") or "")
+    _fill_date(doc.tables[28], 0, data.get("passport_issue_date") or "", *mappings.CONCL_PASSPORT_DATE_CELLS)
+
+    issued = utils.clean_passport_issued_by(data.get("passport_issued_by") or "")
+    issued_upper = issued.upper()
+    _fill_grid(doc.tables[29], 0, 1, 33, issued_upper[:33])
+    _fill_grid(doc.tables[30], 0, 0, 33, issued_upper[33:66])
+    _fill_grid(doc.tables[31], 0, 0, 33, issued_upper[66:99])
+
+    # Conclusion Patent Table is 33
+    _fill_grid(doc.tables[33], 1, 1, 7, data.get("patent_series") or "")
+    _fill_grid(doc.tables[33], 1, 9, 10, data.get("patent_number") or "")
+    _fill_date(doc.tables[33], 1, data.get("patent_issue_date") or "", *mappings.CONCL_PATENT_DATE_CELLS)
+
+    # Conclusion Patent Validity Table is 36
+    _fill_date(doc.tables[36], 0, data.get("patent_issue_date") or "", *mappings.CONCL_PATENT_VALIDITY_START_CELLS)
+    _fill_date(doc.tables[36], 0, data.get("patent_expiry_date") or "", *mappings.CONCL_PATENT_VALIDITY_END_CELLS)
+
+    # Profession
+    _fill_grid(doc.tables[41], 0, 0, 33, "")# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -207,17 +250,17 @@ def _fill_conclusion_employer_block(doc, data: dict):
 def fill_conclusion_document(doc, data: dict):
     """Populate МВД notification of contract conclusion."""
     _fill_conclusion_employer_block(doc, data)
-    _fill_employee_fields(doc, data)
-    _fill_date(doc.tables[mappings.CONTRACT_DATE_TABLE], 1,
-               "14.05.2026", *mappings.CONTRACT_DATE_CELLS)
+    _fill_conclusion_employee_fields(doc, data)
+    _fill_date(doc.tables[46], 1,
+               "14.05.2026", *mappings.CONCL_CONTRACT_DATE_CELLS)
 
 
 def fill_termination_document(doc, data: dict):
     """Populate МВД notification of contract termination."""
     _fill_conclusion_employer_block(doc, data)
-    _fill_employee_fields(doc, data)
-    _fill_date(doc.tables[mappings.CONTRACT_DATE_TABLE], 1,
-               "30.11.2026", *mappings.CONTRACT_DATE_CELLS)
+    _fill_conclusion_employee_fields(doc, data)
+    _fill_date(doc.tables[46], 1,
+               "30.11.2026", *mappings.CONCL_CONTRACT_DATE_CELLS)
 
 
 def fill_patent_notification_document(doc, data: dict):

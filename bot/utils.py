@@ -47,6 +47,26 @@ def extract_employer_fio(employer_name: str) -> str:
     return text.strip()
 
 
+def clean_employer_name(name: str) -> str:
+    """
+    Remove duplicated legal entity prefixes from employer_name.
+    e.g. 'Глава крестьянского хозяйства Глава крестьянского хозяйства Ким...'
+    """
+    if not name:
+        return ""
+    text = str(name).strip()
+    
+    # Clean duplicates of "Индивидуальный предприниматель"
+    text = re.sub(r'(индивидуальный\s+предприниматель\s*){2,}', r'\1', text, flags=re.IGNORECASE)
+    # Clean duplicates of "Глава крестьянского (фермерского) хозяйства"
+    text = re.sub(r'(глава\s+крестьянского\s*\(?фермерского\)?\s*хозяйства\s*){2,}', r'\1', text, flags=re.IGNORECASE)
+    # Clean duplicates of "ИП" or "ООО"
+    text = re.sub(r'(ип\s*){2,}', r'\1', text, flags=re.IGNORECASE)
+    text = re.sub(r'(ооо\s*){2,}', r'\1', text, flags=re.IGNORECASE)
+    
+    return " ".join(text.split())
+
+
 def compute_patent_expiry_date(issue_date_str: str) -> str:
     """
     Compute patent expiry date as exactly 1 year after the issue date.
