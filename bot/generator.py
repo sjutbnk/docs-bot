@@ -44,6 +44,7 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
     contract_data["contract_start_date"] = "14.05.2026"
     contract_data["contract_end_date"]   = "30.11.2026"
     contract_data["short_name"]          = utils.get_short_name(data.get("full_name") or "")
+    contract_data["short_employer_name"] = utils.get_short_name(data.get("employer_name") or "")
 
     # Foreigner address in the contract comes from the Partner Card registration field
     contract_data["address"] = (
@@ -78,7 +79,18 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
     tpl_patent = os.path.join(config.TEMPLATES_DIR, "template_patent_notification.docx")
     doc_pn = docx.Document(tpl_patent)
     fill_patent_notification_document(doc_pn, data)
-    patent_path = os.path.join(output_dir, f"Уведомление_патент_{safe_name}.docx")
+    
+    citizen = str(data.get("citizenship") or "").strip().lower()
+    if "узбек" in citizen:
+        cit_str = "от_узбека"
+    elif "таджик" in citizen:
+        cit_str = "от_таджика"
+    elif citizen:
+        cit_str = f"от_{citizen}"
+    else:
+        cit_str = "от_иностранца"
+        
+    patent_path = os.path.join(output_dir, f"Уведомление_{cit_str}_{safe_name}.docx")
     doc_pn.save(patent_path)
 
     return contract_path, conclusion_path, termination_path, patent_path

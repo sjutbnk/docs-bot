@@ -148,8 +148,64 @@ def _fill_employee_fields(doc, data: dict):
 # Public API
 # ---------------------------------------------------------------------------
 
+def _fill_conclusion_employer_block(doc, data: dict):
+    """Fill employer details for Conclusion and Termination templates (Прил. 7/8)."""
+    emp_inn = str(data.get("employer_inn") or "").strip()
+    is_default_employer = (emp_inn == "312009347140" or not data.get("employer_name"))
+
+    if not is_default_employer:
+        emp_type = str(data.get("employer_type") or "ИП").strip().upper()
+        emp_name = str(data.get("employer_name") or "").upper()
+        emp_addr = str(data.get("employer_address") or "").upper()
+
+        # Clear existing checkboxes (T4 = Юрлицо, T5 = ИП)
+        _set_cell_text(_unique_cells(doc.tables[4].rows[0])[0], "")
+        _set_cell_text(_unique_cells(doc.tables[5].rows[0])[0], "")
+        if emp_type == "ИП":
+            _set_cell_text(_unique_cells(doc.tables[5].rows[0])[0], "X")
+        else:
+            _set_cell_text(_unique_cells(doc.tables[4].rows[0])[0], "X")
+
+        # Employer name (T9-T13, 34 chars each)
+        for row_offset, t_idx in enumerate(range(9, 14)):
+            _fill_grid(doc.tables[t_idx], 0, 0, 34, emp_name[row_offset * 34 : (row_offset + 1) * 34])
+
+        # OGRN (T14)
+        _fill_grid(doc.tables[14], 0, 0, 34, str(data.get("employer_ogrn") or ""))
+
+        # Passport (T15, T16)
+        if emp_type == "ИП":
+            series     = str(data.get("employer_passport_series") or "")
+            number     = str(data.get("employer_passport_number") or "")
+            issued_by  = str(data.get("employer_passport_issued_by") or "")
+            issue_date = str(data.get("employer_passport_issue_date") or "")
+            pass_str   = f"ПАСПОРТ {series} {number} {issued_by}".upper()
+            _fill_grid(doc.tables[15], 0, 0, 34, pass_str[:34])
+            rest = f"{pass_str[34:]} {issue_date}Г.".strip()
+            _fill_grid(doc.tables[16], 0, 0, 34, rest[:34])
+        else:
+            _fill_grid(doc.tables[15], 0, 0, 34, "")
+            _fill_grid(doc.tables[16], 0, 0, 34, "")
+
+        # INN (T17)
+        _fill_grid(doc.tables[17], 0, 0, 34, str(data.get("employer_inn") or ""))
+
+        # Address (T18-T20)
+        _fill_grid(doc.tables[18], 0, 0, 34, emp_addr[:34])
+        _fill_grid(doc.tables[19], 0, 0, 34, emp_addr[34:68])
+        _fill_grid(doc.tables[20], 0, 0, 34, emp_addr[68:102])
+
+        # Bottom signature (T49)
+        cells49 = _unique_cells(doc.tables[49].rows[0])
+        if len(cells49) >= 3:
+            short_name = utils.get_short_name(data.get("employer_name") or "").upper()
+            _set_cell_text(cells49[0], emp_type)
+            _set_cell_text(cells49[2], short_name)
+
+
 def fill_conclusion_document(doc, data: dict):
     """Populate МВД notification of contract conclusion."""
+    _fill_conclusion_employer_block(doc, data)
     _fill_employee_fields(doc, data)
     _fill_date(doc.tables[mappings.CONTRACT_DATE_TABLE], 1,
                "14.05.2026", *mappings.CONTRACT_DATE_CELLS)
@@ -157,6 +213,7 @@ def fill_conclusion_document(doc, data: dict):
 
 def fill_termination_document(doc, data: dict):
     """Populate МВД notification of contract termination."""
+    _fill_conclusion_employer_block(doc, data)
     _fill_employee_fields(doc, data)
     _fill_date(doc.tables[mappings.CONTRACT_DATE_TABLE], 1,
                "30.11.2026", *mappings.CONTRACT_DATE_CELLS)
