@@ -35,13 +35,9 @@ def compute_patent_expiry_date(issue_date_str: str) -> str:
 
 def clean_passport_issued_by(issued_by: str) -> str:
     """
-    Extract only the numeric unit code from МВД passport issued-by field.
-    E.g. 'МВД 22232 по Астраханской области' → '22232'
-    If no match, return the original string trimmed.
+    Return the passport issued-by text, cleaned of extra whitespace.
     """
     if not issued_by:
         return ""
-    match = re.search(r'МВД[^\d]*(\d{3,6})', str(issued_by), re.IGNORECASE)
-    if match:
-        return match.group(1)
-    return str(issued_by).strip()
+    # Just clean up extra spaces and return the full string
+    return " ".join(str(issued_by).split())
