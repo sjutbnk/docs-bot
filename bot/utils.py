@@ -49,22 +49,23 @@ def extract_employer_fio(employer_name: str) -> str:
 
 def clean_employer_name(name: str) -> str:
     """
-    Remove duplicated legal entity prefixes from employer_name.
-    e.g. 'Глава крестьянского хозяйства Глава крестьянского хозяйства Ким...'
+    Remove duplicated or mangled legal entity prefixes from employer_name by 
+    extracting the pure FIO and rebuilding the legal prefix perfectly.
     """
     if not name:
         return ""
-    text = str(name).strip()
     
-    # Clean duplicates of "Индивидуальный предприниматель"
-    text = re.sub(r'(индивидуальный\s+предприниматель\s*){2,}', r'\1', text, flags=re.IGNORECASE)
-    # Clean duplicates of "Глава крестьянского (фермерского) хозяйства"
-    text = re.sub(r'(глава\s+крестьянского\s*\(?фермерского\)?\s*хозяйства\s*){2,}', r'\1', text, flags=re.IGNORECASE)
-    # Clean duplicates of "ИП" or "ООО"
-    text = re.sub(r'(ип\s*){2,}', r'\1', text, flags=re.IGNORECASE)
-    text = re.sub(r'(ооо\s*){2,}', r'\1', text, flags=re.IGNORECASE)
+    pure_fio = extract_employer_fio(name)
+    name_lower = name.lower()
     
-    return " ".join(text.split())
+    if "ооо" in name_lower or "общество" in name_lower:
+        return f'ООО "{pure_fio}"'
+    elif "гкфх" in name_lower or "крестьянск" in name_lower or "фермерск" in name_lower:
+        return f"Индивидуальный предприниматель Глава крестьянского (фермерского) хозяйства {pure_fio}"
+    elif "ип " in name_lower or "индивидуальный предп" in name_lower or name_lower.startswith("ип"):
+        return f"Индивидуальный предприниматель {pure_fio}"
+    else:
+        return pure_fio
 
 
 def compute_patent_expiry_date(issue_date_str: str) -> str:
