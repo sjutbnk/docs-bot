@@ -198,7 +198,8 @@ def _fill_conclusion_employer_block(doc, data: dict):
         # Bottom signature (T49)
         cells49 = _unique_cells(doc.tables[49].rows[0])
         if len(cells49) >= 3:
-            short_name = utils.get_short_name(data.get("employer_name") or "").upper()
+            pure_fio = utils.extract_employer_fio(data.get("employer_name") or "")
+            short_name = utils.get_short_name(pure_fio).upper()
             _set_cell_text(cells49[0], emp_type)
             _set_cell_text(cells49[2], short_name)
 

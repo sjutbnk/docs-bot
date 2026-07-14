@@ -44,7 +44,10 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
     contract_data["contract_start_date"] = "14.05.2026"
     contract_data["contract_end_date"]   = "30.11.2026"
     contract_data["short_name"]          = utils.get_short_name(data.get("full_name") or "")
-    contract_data["short_employer_name"] = utils.get_short_name(data.get("employer_name") or "")
+    
+    # Extract clean FIO for short name (e.g. "Ким В.Р.")
+    pure_fio = utils.extract_employer_fio(data.get("employer_name") or "")
+    contract_data["short_employer_name"] = utils.get_short_name(pure_fio)
 
     # Foreigner address in the contract comes from the Partner Card registration field
     contract_data["address"] = (
