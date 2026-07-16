@@ -64,6 +64,7 @@ def _flatten_json(data: dict) -> dict:
 def _generate_with_fallback(client, contents):
     """
     Generate content using Gemini, falling back to cheaper models on quota/server errors.
+    Uses exponential backoff: waits 3s, 8s, 20s between retries before switching model.
     Priority: best quality first, lite models as last resort.
     """
     models = [
@@ -72,10 +73,18 @@ def _generate_with_fallback(client, contents):
         'gemini-1.5-flash',
         'gemini-2.5-flash-lite',
     ]
+    # Delays between retry attempts within the same model
+    retry_delays = [3, 8, 20]
     last_exception = None
 
+    def _is_transient(err_str: str) -> bool:
+        return any(kw in err_str for kw in (
+            "503", "429", "overloaded", "unavailable",
+            "resource_exhausted", "quota", "exhausted",
+        ))
+
     for model_name in models:
-        for attempt in range(2):
+        for attempt in range(3):
             try:
                 config.logger.info(f"Using model: {model_name} (attempt {attempt + 1})")
                 response = client.models.generate_content(
@@ -87,12 +96,13 @@ def _generate_with_fallback(client, contents):
             except Exception as e:
                 last_exception = e
                 err_str = str(e)
-                config.logger.warning(f"Model {model_name} failed: {err_str}")
-                # Retry once on transient errors, then move to next model
-                if ("503" in err_str or "429" in err_str) and attempt == 0:
-                    time.sleep(3)
+                config.logger.warning(f"Model {model_name} attempt {attempt + 1} failed: {err_str}")
+                if _is_transient(err_str) and attempt < 2:
+                    delay = retry_delays[attempt]
+                    config.logger.info(f"Transient error — retrying in {delay}s...")
+                    time.sleep(delay)
                 else:
-                    break
+                    break  # non-transient error or all retries exhausted → next model
 
     raise last_exception
 

@@ -174,7 +174,7 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
 
     await reply_to.answer(
         "⏳ Запускаю распознавание и двойную ИИ-проверку данных (Аудитор). "
-        "Это займёт 20–30 секунд…"
+        "Обычно занимает 20–60 секунд (при нагрузке на серверы — до 2 минут)…"
     )
 
     try:
@@ -182,9 +182,9 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
     except Exception as e:
         err = str(e)
         if "429" in err or "quota" in err.lower() or "exhausted" in err.lower():
-            msg = "❌ Лимит запросов к нейросети исчерпан. Подождите немного и попробуйте снова."
-        elif "503" in err or "unavailable" in err.lower():
-            msg = "❌ Серверы нейросети перегружены. Повторите попытку через минуту."
+            msg = "❌ Лимит запросов к нейросети исчерпан. Попробуйте снова через несколько минут."
+        elif "503" in err or "unavailable" in err.lower() or "overloaded" in err.lower():
+            msg = "❌ Серверы нейросети перегружены (бот уже пытался повторить несколько раз). Попробуйте снова через 2–3 минуты."
         else:
             msg = f"❌ Ошибка при обработке: {err}"
         await reply_to.answer(msg)
