@@ -187,7 +187,7 @@ def _fill_conclusion_employee_fields(doc, data: dict):
     _fill_date(doc.tables[36], 0, data.get("patent_expiry_date") or "", *mappings.CONCL_PATENT_VALIDITY_END_CELLS)
 
     # Profession
-    _fill_grid(doc.tables[41], 0, 0, 33, "")
+    _fill_grid(doc.tables[41], 0, 0, 33, str(data.get("profession") or "Овощевод").upper())
 
 
 # ---------------------------------------------------------------------------
@@ -374,10 +374,11 @@ def fill_patent_notification_document(doc, data: dict):
     _fill_date(doc.tables[13], 0, data.get("patent_issue_date") or "",
                [20, 21], [23, 24], [26, 27, 28, 29], [22, 25])
 
-    # Profession — always blank (3 rows × 31 chars)
-    _fill_grid(doc.tables[14], 0, 0, 31, "")
-    _fill_grid(doc.tables[15], 0, 0, 31, "")
-    _fill_grid(doc.tables[16], 0, 0, 31, "")
+    # Profession (3 rows × 31 chars)
+    prof = str(data.get("profession") or "Овощевод").upper()
+    _fill_grid(doc.tables[14], 0, 0, 31, prof[:31])
+    _fill_grid(doc.tables[15], 0, 0, 31, prof[31:62])
+    _fill_grid(doc.tables[16], 0, 0, 31, prof[62:93])
 
     # Place of work (T17 + T18, 31 chars each)
     work_addr = str(data.get("work_address") or data.get("employer_address") or "").upper()

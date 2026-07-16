@@ -22,6 +22,7 @@ router = Router()
 class DocumentFlow(StatesGroup):
     waiting_for_inn         = State()
     waiting_for_phone       = State()
+    waiting_for_profession  = State()
     waiting_for_patent_date = State()
     waiting_for_dms_number  = State()
     waiting_for_dms_date    = State()
@@ -75,7 +76,7 @@ async def _show_generation_menu(message: types.Message, state: FSMContext):
     extracted  = state_data.get("extracted_data", {})
 
     # Merge optional manually-entered fields
-    for key in ("inn", "phone", "dms_number", "dms_date"):
+    for key in ("inn", "phone", "dms_number", "dms_date", "profession"):
         if key in state_data:
             extracted[key] = state_data[key]
 
@@ -86,6 +87,7 @@ async def _show_generation_menu(message: types.Message, state: FSMContext):
     await message.answer(
         f"✅ Данные подготовлены:\n"
         f"ФИО: {extracted.get('full_name') or '—'}\n"
+        f"Профессия: {extracted.get('profession') or 'Не указана'}\n"
         f"ИНН: {extracted.get('inn') or 'Не указан'}\n"
         f"Телефон: {extracted.get('phone') or 'Не указан'}\n"
         f"Полис ДМС: {extracted.get('dms_number') or 'Не указан'} "
@@ -236,12 +238,31 @@ async def process_phone(message: types.Message, state: FSMContext):
         return
     await state.update_data(phone=digits)
     
-    # Check if we need patent issue date
-    import utils
+    # Suggest default profession from extracted_data or default 'Овощевод'
     state_data = await state.get_data()
     ext_data = state_data.get("extracted_data") or {}
+    sugg_prof = ext_data.get("profession") or "Овощевод"
+    
+    await message.answer(
+        f"💼 Введите профессию сотрудника (по умолчанию: {sugg_prof}, "
+        f"введите `-` чтобы оставить по умолчанию):"
+    )
+    await state.set_state(DocumentFlow.waiting_for_profession)
+
+
+@router.message(DocumentFlow.waiting_for_profession)
+async def process_profession(message: types.Message, state: FSMContext):
+    val = message.text.strip()
+    
+    state_data = await state.get_data()
+    ext_data = state_data.get("extracted_data") or {}
+    sugg_prof = ext_data.get("profession") or "Овощевод"
+    
+    prof = sugg_prof if val == "-" else val
+    ext_data["profession"] = prof
     
     # Normalize dates and run two-way calculations first
+    import utils
     for date_key in ("birth_date", "passport_issue_date",
                      "patent_issue_date", "patent_expiry_date",
                      "employer_passport_issue_date"):
