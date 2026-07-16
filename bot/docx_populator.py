@@ -194,7 +194,7 @@ def _fill_conclusion_employee_fields(doc, data: dict):
 # Public API
 # ---------------------------------------------------------------------------
 
-def _fill_conclusion_employer_block(doc, data: dict):
+def _fill_conclusion_employer_block(doc, data: dict, is_termination: bool = False):
     """Fill employer details for Conclusion and Termination templates (Прил. 7/8)."""
     emp_inn = str(data.get("employer_inn") or "").strip()
     is_default_employer = (emp_inn == "312009347140" or not data.get("employer_name"))
@@ -222,18 +222,35 @@ def _fill_conclusion_employer_block(doc, data: dict):
         _fill_grid(doc.tables[14], 0, 0, 34, str(data.get("employer_ogrn") or ""))
 
         # Passport (T15, T16)
+        if is_termination:
+            # Termination template: T15 is empty gap, passport in T16 (all rows)
+            for r_idx in range(len(doc.tables[16].rows)):
+                _fill_grid(doc.tables[16], r_idx, 0, 34, "")
+        else:
+            # Conclusion template: T15 (row 0) and T16 (all rows)
+            _fill_grid(doc.tables[15], 0, 0, 34, "")
+            for r_idx in range(len(doc.tables[16].rows)):
+                _fill_grid(doc.tables[16], r_idx, 0, 34, "")
+
         if emp_type == "ИП":
             series     = str(data.get("employer_passport_series") or "")
             number     = str(data.get("employer_passport_number") or "")
             issued_by  = str(data.get("employer_passport_issued_by") or "")
             issue_date = str(data.get("employer_passport_issue_date") or "")
-            pass_str   = f"ПАСПОРТ {series} {number} {issued_by}".upper()
-            _fill_grid(doc.tables[15], 0, 0, 34, pass_str[:34])
-            rest = f"{pass_str[34:]} {issue_date}Г.".strip()
-            _fill_grid(doc.tables[16], 0, 0, 34, rest[:34])
-        else:
-            _fill_grid(doc.tables[15], 0, 0, 34, "")
-            _fill_grid(doc.tables[16], 0, 0, 34, "")
+            pass_str   = f"ПАСПОРТ {series} {number} {issued_by} {issue_date}Г.".strip().upper()
+            chunks     = [pass_str[i : i + 34] for i in range(0, len(pass_str), 34)]
+
+            if is_termination:
+                for r_idx in range(len(doc.tables[16].rows)):
+                    if r_idx < len(chunks):
+                        _fill_grid(doc.tables[16], r_idx, 0, 34, chunks[r_idx])
+            else:
+                if len(chunks) > 0:
+                    _fill_grid(doc.tables[15], 0, 0, 34, chunks[0])
+                for r_idx in range(len(doc.tables[16].rows)):
+                    chunk_idx = r_idx + 1
+                    if chunk_idx < len(chunks):
+                        _fill_grid(doc.tables[16], r_idx, 0, 34, chunks[chunk_idx])
 
         # INN (T17)
         _fill_grid(doc.tables[17], 0, 0, 34, str(data.get("employer_inn") or ""))
@@ -243,10 +260,11 @@ def _fill_conclusion_employer_block(doc, data: dict):
         _fill_grid(doc.tables[19], 0, 0, 34, emp_addr[34:68])
         _fill_grid(doc.tables[20], 0, 0, 34, emp_addr[68:102])
 
-        # Place of activity/work address (T47, T48)
-        work_addr = str(data.get("work_address") or data.get("employer_address") or "").upper()
-        _fill_grid(doc.tables[47], 0, 0, 34, work_addr[:34])
-        _fill_grid(doc.tables[48], 0, 0, 34, work_addr[34:68])
+        # Place of activity/work address (T47, T48) — ONLY in conclusion template!
+        if not is_termination:
+            work_addr = str(data.get("work_address") or data.get("employer_address") or "").upper()
+            _fill_grid(doc.tables[47], 0, 0, 34, work_addr[:34])
+            _fill_grid(doc.tables[48], 0, 0, 34, work_addr[34:68])
 
         # Bottom signature (T49)
         cells49 = _unique_cells(doc.tables[49].rows[0])
@@ -259,7 +277,7 @@ def _fill_conclusion_employer_block(doc, data: dict):
 
 def fill_conclusion_document(doc, data: dict):
     """Populate МВД notification of contract conclusion."""
-    _fill_conclusion_employer_block(doc, data)
+    _fill_conclusion_employer_block(doc, data, is_termination=False)
     _fill_conclusion_employee_fields(doc, data)
     _fill_date(doc.tables[46], 1,
                "14.05.2026", *mappings.CONCL_CONTRACT_DATE_CELLS)
@@ -267,7 +285,7 @@ def fill_conclusion_document(doc, data: dict):
 
 def fill_termination_document(doc, data: dict):
     """Populate МВД notification of contract termination."""
-    _fill_conclusion_employer_block(doc, data)
+    _fill_conclusion_employer_block(doc, data, is_termination=True)
     _fill_conclusion_employee_fields(doc, data)
     _fill_date(doc.tables[46], 1,
                "30.11.2026", *mappings.CONCL_CONTRACT_DATE_CELLS)

@@ -20,10 +20,11 @@ router = Router()
 # ---------------------------------------------------------------------------
 
 class DocumentFlow(StatesGroup):
-    waiting_for_inn        = State()
-    waiting_for_phone      = State()
-    waiting_for_dms_number = State()
-    waiting_for_dms_date   = State()
+    waiting_for_inn         = State()
+    waiting_for_phone       = State()
+    waiting_for_patent_date = State()
+    waiting_for_dms_number  = State()
+    waiting_for_dms_date    = State()
 
 
 # ---------------------------------------------------------------------------
@@ -173,8 +174,8 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
         return
 
     await reply_to.answer(
-        "⏳ Запускаю распознавание и двойную ИИ-проверку данных (Аудитор). "
-        "Обычно занимает 20–60 секунд (при нагрузке на серверы — до 2 минут)…"
+        "⏳ Запускаю распознавание и двойную ИИ-проверку данных. "
+        "Обычно занимает 20 секунд (при нагрузке на серверы — до 2 минут)…"
     )
 
     try:
@@ -234,6 +235,55 @@ async def process_phone(message: types.Message, state: FSMContext):
         await message.answer("❌ Некорректный номер телефона. Введите, например: 89000000000")
         return
     await state.update_data(phone=digits)
+    
+    # Check if we need patent issue date
+    import utils
+    state_data = await state.get_data()
+    ext_data = state_data.get("extracted_data") or {}
+    
+    # Normalize dates and run two-way calculations first
+    for date_key in ("birth_date", "passport_issue_date",
+                     "patent_issue_date", "patent_expiry_date",
+                     "employer_passport_issue_date"):
+        if ext_data.get(date_key):
+            ext_data[date_key] = utils.normalize_date(str(ext_data[date_key]))
+            
+    issue_date = str(ext_data.get("patent_issue_date") or "").strip()
+    expiry_date = str(ext_data.get("patent_expiry_date") or "").strip()
+    if issue_date and (not expiry_date or expiry_date == issue_date):
+        ext_data["patent_expiry_date"] = utils.compute_patent_expiry_date(issue_date)
+    elif expiry_date and not issue_date:
+        ext_data["patent_issue_date"] = utils.compute_patent_issue_date(expiry_date)
+        
+    await state.update_data(extracted_data=ext_data)
+    
+    citizen = str(ext_data.get("citizenship") or "").strip().lower()
+    needs_patent = not any(k in citizen for k in ("беларус", "казах", "армен", "киргиз", "еаэс"))
+    patent_issue_date = str(ext_data.get("patent_issue_date") or "").strip()
+    
+    if needs_patent and not patent_issue_date:
+        await message.answer("📅 Введите дату выдачи патента сотрудника в формате ДД.ММ.ГГГГ:")
+        await state.set_state(DocumentFlow.waiting_for_patent_date)
+    else:
+        await message.answer("📄 Введите номер полиса ДМС сотрудника или `-` если отсутствует:")
+        await state.set_state(DocumentFlow.waiting_for_dms_number)
+
+
+@router.message(DocumentFlow.waiting_for_patent_date)
+async def process_patent_date(message: types.Message, state: FSMContext):
+    val = message.text.strip()
+    if not _validate_date(val):
+        await message.answer("❌ Формат даты неверный. Введите в формате ДД.ММ.ГГГГ (например, 13.05.2025):")
+        return
+    
+    import utils
+    normalized_date = utils.normalize_date(val)
+    state_data = await state.get_data()
+    ext_data = state_data.get("extracted_data") or {}
+    ext_data["patent_issue_date"] = normalized_date
+    ext_data["patent_expiry_date"] = utils.compute_patent_expiry_date(normalized_date)
+    
+    await state.update_data(extracted_data=ext_data)
     await message.answer("📄 Введите номер полиса ДМС сотрудника или `-` если отсутствует:")
     await state.set_state(DocumentFlow.waiting_for_dms_number)
 
