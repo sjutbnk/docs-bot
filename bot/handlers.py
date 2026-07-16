@@ -63,7 +63,7 @@ def _build_generation_menu(citizenship: str = ""):
     builder.button(text="Договор о приеме (DOCX)",           callback_data="gen_contract")
     builder.button(text="Уведомление о приеме (DOCX)",       callback_data="gen_conclusion")
     builder.button(text="Уведомление о расторжении (DOCX)",  callback_data="gen_termination")
-    builder.button(text=f"Уведомление о приеме ({cit_str})", callback_data="gen_patent_notif")
+    builder.button(text=f"Уведомление о приеме ({cit_str}) (DOCX)", callback_data="gen_patent_notif")
     builder.button(text="Сделать все 4 документа",           callback_data="gen_all")
     builder.adjust(1)
     return builder.as_markup()

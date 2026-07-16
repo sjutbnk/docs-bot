@@ -68,6 +68,30 @@ def clean_employer_name(name: str) -> str:
         return pure_fio
 
 
+def normalize_date(date_str: str) -> str:
+    """
+    Normalize a date string to DD.MM.YYYY format.
+    Handles missing leading zeros (3.5.2025 -> 03.05.2025),
+    slash/dash separators (13/05/2025 -> 13.05.2025), and
+    returns the original string unchanged if format is unrecognised.
+    """
+    if not date_str:
+        return ""
+    s = str(date_str).strip()
+    # Already correct
+    if re.fullmatch(r'\d{2}\.\d{2}\.\d{4}', s):
+        return s
+    # D.M.YYYY, DD.M.YYYY, D.MM.YYYY (dot separator, possibly missing leading zeros)
+    m = re.fullmatch(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', s)
+    if m:
+        return f'{int(m.group(1)):02d}.{int(m.group(2)):02d}.{m.group(3)}'
+    # DD/MM/YYYY, D/M/YYYY, DD-MM-YYYY, etc.
+    m = re.fullmatch(r'(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})', s)
+    if m:
+        return f'{int(m.group(1)):02d}.{int(m.group(2)):02d}.{m.group(3)}'
+    return s  # unrecognised — return as-is
+
+
 def compute_patent_expiry_date(issue_date_str: str) -> str:
     """
     Compute patent expiry date as exactly 1 year after the issue date.
@@ -76,7 +100,8 @@ def compute_patent_expiry_date(issue_date_str: str) -> str:
     if not issue_date_str:
         return ""
     try:
-        parts = str(issue_date_str).strip().split('.')
+        normalized = normalize_date(str(issue_date_str).strip())
+        parts = normalized.split('.')
         if len(parts) == 3:
             day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
             return f"{day:02d}.{month:02d}.{year + 1}"

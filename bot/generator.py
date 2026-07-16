@@ -43,6 +43,15 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
     if data.get("employer_name"):
         data["employer_name"] = utils.clean_employer_name(data["employer_name"])
 
+    # 4. Normalize all dates to strict DD.MM.YYYY format (pad missing leading zeros,
+    #    handle slash/dash separators). This prevents cells from being written with
+    #    single-digit day/month which would visually shift the date in the form.
+    for date_key in ("birth_date", "passport_issue_date",
+                     "patent_issue_date", "patent_expiry_date",
+                     "employer_passport_issue_date"):
+        if data.get(date_key):
+            data[date_key] = utils.normalize_date(str(data[date_key]))
+
     safe_name = (data.get("full_name") or "Сотрудник").replace(" ", "_")
 
     # ── Contract (Jinja2 template) ──────────────────────────────────────────
