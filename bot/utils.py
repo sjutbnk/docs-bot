@@ -95,7 +95,7 @@ def normalize_date(date_str: str) -> str:
 
 def compute_patent_expiry_date(issue_date_str: str) -> str:
     """
-    Compute patent expiry date as exactly 1 year minus 1 day after the issue date.
+    Compute patent expiry date as exactly 1 year after the issue date.
     Input/output format: DD.MM.YYYY
     """
     if not issue_date_str:
@@ -105,16 +105,20 @@ def compute_patent_expiry_date(issue_date_str: str) -> str:
         parts = normalized.split('.')
         if len(parts) == 3:
             day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
-            issue_date = datetime.date(year, month, day)
-            # Add 1 year and subtract 1 day safely
             try:
-                expiry_year = year + 1
-                one_year_later = datetime.date(expiry_year, month, day)
+                # Validate date
+                d = datetime.date(year, month, day)
+                # Compute expiry safely
+                exp_year = year + 1
+                if month == 2 and day == 29:
+                    # check if exp_year is leap
+                    is_leap = (exp_year % 4 == 0 and (exp_year % 100 != 0 or exp_year % 400 == 0))
+                    d_day = 29 if is_leap else 28
+                else:
+                    d_day = day
+                return f"{d_day:02d}.{month:02d}.{exp_year}"
             except ValueError:
-                # If issue date was Feb 29 and next year is not leap:
-                one_year_later = datetime.date(expiry_year, 2, 28)
-            expiry_date = one_year_later - datetime.timedelta(days=1)
-            return expiry_date.strftime("%d.%m.%Y")
+                pass
     except Exception:
         pass
     return ""
@@ -122,7 +126,7 @@ def compute_patent_expiry_date(issue_date_str: str) -> str:
 
 def compute_patent_issue_date(expiry_date_str: str) -> str:
     """
-    Compute patent issue date as exactly 1 year minus 1 day before the expiry date.
+    Compute patent issue date as exactly 1 year before the expiry date.
     Input/output format: DD.MM.YYYY
     """
     if not expiry_date_str:
@@ -132,16 +136,20 @@ def compute_patent_issue_date(expiry_date_str: str) -> str:
         parts = normalized.split('.')
         if len(parts) == 3:
             day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
-            expiry_date = datetime.date(year, month, day)
-            # Subtract 1 year and add 1 day safely
             try:
-                issue_year = year - 1
-                one_year_prior = datetime.date(issue_year, month, day)
+                # Validate date
+                d = datetime.date(year, month, day)
+                # Compute issue safely
+                iss_year = year - 1
+                if month == 2 and day == 29:
+                    # check if iss_year is leap
+                    is_leap = (iss_year % 4 == 0 and (iss_year % 100 != 0 or iss_year % 400 == 0))
+                    d_day = 29 if is_leap else 28
+                else:
+                    d_day = day
+                return f"{d_day:02d}.{month:02d}.{iss_year}"
             except ValueError:
-                # If expiry date was Feb 29 and prior year is not leap:
-                one_year_prior = datetime.date(issue_year, 2, 28)
-            issue_date = one_year_prior + datetime.timedelta(days=1)
-            return issue_date.strftime("%d.%m.%Y")
+                pass
     except Exception:
         pass
     return ""
