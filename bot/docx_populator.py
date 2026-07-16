@@ -243,6 +243,11 @@ def _fill_conclusion_employer_block(doc, data: dict):
         _fill_grid(doc.tables[19], 0, 0, 34, emp_addr[34:68])
         _fill_grid(doc.tables[20], 0, 0, 34, emp_addr[68:102])
 
+        # Place of activity/work address (T47, T48)
+        work_addr = str(data.get("work_address") or data.get("employer_address") or "").upper()
+        _fill_grid(doc.tables[47], 0, 0, 34, work_addr[:34])
+        _fill_grid(doc.tables[48], 0, 0, 34, work_addr[34:68])
+
         # Bottom signature (T49)
         cells49 = _unique_cells(doc.tables[49].rows[0])
         if len(cells49) >= 3:
@@ -372,12 +377,19 @@ def fill_patent_notification_document(doc, data: dict):
     _fill_grid(doc.tables[23], 0, 1, 12, str(data.get("inn") or ""))
 
     # DMS policy series (C1-C3) + number (C7-C18)
-    _fill_grid(doc.tables[27], 0, 1, 3, "MRF")
-    _fill_grid(doc.tables[27], 0, 7, 12, str(data.get("dms_number") or ""))
-
-    # DMS issue date (T28 row 0, same compact format)
-    _fill_date(doc.tables[28], 0, "14.05.2026",
-               [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
+    dms_series, dms_num = utils.split_dms_number(data.get("dms_number") or "")
+    if dms_num:
+        _fill_grid(doc.tables[27], 0, 1, 3, dms_series)
+        _fill_grid(doc.tables[27], 0, 7, 12, dms_num)
+        # DMS issue date (T28 row 0, same compact format)
+        _fill_date(doc.tables[28], 0, "14.05.2026",
+                   [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
+    else:
+        _fill_grid(doc.tables[27], 0, 1, 3, "")
+        _fill_grid(doc.tables[27], 0, 7, 12, "")
+        # Empty the DMS issue date
+        _fill_date(doc.tables[28], 0, "",
+                   [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
 
     # Employee contact phone (T29, C1-C10 = 10 digits)
     emp_phone = "".join(c for c in str(data.get("phone") or "") if c.isdigit())

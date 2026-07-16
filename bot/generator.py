@@ -27,12 +27,6 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
         for key, val in config.DEFAULT_EMPLOYER.items():
             data.setdefault(key, val)
 
-    # 2. Compute patent expiry date if missing
-    if data.get("patent_issue_date") and not str(data.get("patent_expiry_date", "")).strip():
-        data["patent_expiry_date"] = utils.compute_patent_expiry_date(
-            str(data["patent_issue_date"]).strip()
-        )
-
     # 3. Clean passport issued-by to МВД unit code
     if data.get("passport_issued_by"):
         data["passport_issued_by"] = utils.clean_passport_issued_by(
@@ -51,6 +45,14 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
                      "employer_passport_issue_date"):
         if data.get(date_key):
             data[date_key] = utils.normalize_date(str(data[date_key]))
+
+    # 2. Compute patent dates if one of them is missing or they are identical
+    issue_date = str(data.get("patent_issue_date") or "").strip()
+    expiry_date = str(data.get("patent_expiry_date") or "").strip()
+    if issue_date and (not expiry_date or expiry_date == issue_date):
+        data["patent_expiry_date"] = utils.compute_patent_expiry_date(issue_date)
+    elif expiry_date and not issue_date:
+        data["patent_issue_date"] = utils.compute_patent_issue_date(expiry_date)
 
     safe_name = (data.get("full_name") or "Сотрудник").replace(" ", "_")
 

@@ -1,4 +1,5 @@
 import re
+import datetime
 
 
 def get_short_name(full_name: str) -> str:
@@ -94,7 +95,7 @@ def normalize_date(date_str: str) -> str:
 
 def compute_patent_expiry_date(issue_date_str: str) -> str:
     """
-    Compute patent expiry date as exactly 1 year after the issue date.
+    Compute patent expiry date as exactly 1 year minus 1 day after the issue date.
     Input/output format: DD.MM.YYYY
     """
     if not issue_date_str:
@@ -104,10 +105,67 @@ def compute_patent_expiry_date(issue_date_str: str) -> str:
         parts = normalized.split('.')
         if len(parts) == 3:
             day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
-            return f"{day:02d}.{month:02d}.{year + 1}"
+            issue_date = datetime.date(year, month, day)
+            # Add 1 year and subtract 1 day safely
+            try:
+                expiry_year = year + 1
+                one_year_later = datetime.date(expiry_year, month, day)
+            except ValueError:
+                # If issue date was Feb 29 and next year is not leap:
+                one_year_later = datetime.date(expiry_year, 2, 28)
+            expiry_date = one_year_later - datetime.timedelta(days=1)
+            return expiry_date.strftime("%d.%m.%Y")
     except Exception:
         pass
     return ""
+
+
+def compute_patent_issue_date(expiry_date_str: str) -> str:
+    """
+    Compute patent issue date as exactly 1 year minus 1 day before the expiry date.
+    Input/output format: DD.MM.YYYY
+    """
+    if not expiry_date_str:
+        return ""
+    try:
+        normalized = normalize_date(str(expiry_date_str).strip())
+        parts = normalized.split('.')
+        if len(parts) == 3:
+            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+            expiry_date = datetime.date(year, month, day)
+            # Subtract 1 year and add 1 day safely
+            try:
+                issue_year = year - 1
+                one_year_prior = datetime.date(issue_year, month, day)
+            except ValueError:
+                # If expiry date was Feb 29 and prior year is not leap:
+                one_year_prior = datetime.date(issue_year, 2, 28)
+            issue_date = one_year_prior + datetime.timedelta(days=1)
+            return issue_date.strftime("%d.%m.%Y")
+    except Exception:
+        pass
+    return ""
+
+
+def split_dms_number(dms_str: str) -> tuple:
+    """
+    Split a DMS string into a tuple of (series, number).
+    If it starts with alphabetical characters, splits them.
+    If it is '-' or empty, returns ('', '').
+    Otherwise defaults to ('MRF', digits).
+    """
+    s = str(dms_str).strip()
+    if not s or s in ("-", "—"):
+        return "", ""
+    # Search for series (letters) and number (digits)
+    match = re.search(r'([A-Za-zА-Яа-яЁё]+)\s*(\d+)', s)
+    if match:
+        return match.group(1).upper(), match.group(2)
+    # If only digits are found
+    digits = "".join(c for c in s if c.isdigit())
+    if digits:
+        return "MRF", digits
+    return "", ""
 
 
 def clean_passport_issued_by(issued_by: str) -> str:
