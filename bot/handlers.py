@@ -244,13 +244,33 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
         await reply_to.answer("⚠️ Файлы не найдены. Сначала отправьте документы.")
         return
 
-    await reply_to.answer(
-        "⏳ Запускаю распознавание и двойную ИИ-проверку данных. "
-        "Обычно занимает 20 секунд (при нагрузке на серверы — до 2 минут)…"
+    sent_msg = await reply_to.answer(
+        "⏳ Запускаю распознавание и двойную ИИ-проверку данных...\n"
+        "Обычно занимает 20 секунд (при нагрузке на серверы — до 2 минут)"
     )
 
+    async def animate_msg():
+        frames = ["⏳", "⌛"]
+        dots = ["", ".", "..", "..."]
+        i = 0
+        try:
+            while True:
+                await asyncio.sleep(1.5)
+                frame = frames[i % 2]
+                dot = dots[i % 4]
+                text = f"{frame} Запускаю распознавание и двойную ИИ-проверку данных{dot}\nОбычно занимает 20 секунд (при нагрузке на серверы — до 2 минут)"
+                try:
+                    await sent_msg.edit_text(text)
+                except Exception:
+                    pass
+                i += 1
+        except asyncio.CancelledError:
+            pass
+
+    anim_task = asyncio.create_task(animate_msg())
+
     try:
-        data = extractor.extract_data_from_images(files)
+        data = await asyncio.to_thread(extractor.extract_data_from_images, files)
     except Exception as e:
         err = str(e)
         if "429" in err or "quota" in err.lower() or "exhausted" in err.lower():
@@ -264,9 +284,15 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
         await state.clear()
         return
     finally:
+        anim_task.cancel()
         # Always clear files and last-message pointer after attempt
         user_files[user_id] = []
         user_last_msg[user_id] = None
+        
+    try:
+        await sent_msg.edit_text("✅ Данные успешно распознаны!")
+    except Exception:
+        pass
 
     await state.update_data(extracted_data=data)
 
