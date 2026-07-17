@@ -222,15 +222,9 @@ def _fill_conclusion_employer_block(doc, data: dict, is_termination: bool = Fals
         _fill_grid(doc.tables[14], 0, 0, 34, str(data.get("employer_ogrn") or ""))
 
         # Passport (T15, T16)
-        if is_termination:
-            # Termination template: T15 is empty gap, passport in T16 (all rows)
-            for r_idx in range(len(doc.tables[16].rows)):
-                _fill_grid(doc.tables[16], r_idx, 0, 34, "")
-        else:
-            # Conclusion template: T15 (row 0) and T16 (all rows)
-            _fill_grid(doc.tables[15], 0, 0, 34, "")
-            for r_idx in range(len(doc.tables[16].rows)):
-                _fill_grid(doc.tables[16], r_idx, 0, 34, "")
+        _fill_grid(doc.tables[15], 0, 0, 34, "")
+        for r_idx in range(len(doc.tables[16].rows)):
+            _fill_grid(doc.tables[16], r_idx, 0, 34, "")
 
         if emp_type == "ИП":
             series     = str(data.get("employer_passport_series") or "")
@@ -240,17 +234,11 @@ def _fill_conclusion_employer_block(doc, data: dict, is_termination: bool = Fals
             pass_str   = f"ПАСПОРТ {series} {number} {issued_by} {issue_date}Г.".strip().upper()
             chunks     = [pass_str[i : i + 34] for i in range(0, len(pass_str), 34)]
 
-            if is_termination:
-                for r_idx in range(len(doc.tables[16].rows)):
-                    if r_idx < len(chunks):
-                        _fill_grid(doc.tables[16], r_idx, 0, 34, chunks[r_idx])
-            else:
-                if len(chunks) > 0:
-                    _fill_grid(doc.tables[15], 0, 0, 34, chunks[0])
-                for r_idx in range(len(doc.tables[16].rows)):
-                    chunk_idx = r_idx + 1
-                    if chunk_idx < len(chunks):
-                        _fill_grid(doc.tables[16], r_idx, 0, 34, chunks[chunk_idx])
+            if len(chunks) > 0:
+                _fill_grid(doc.tables[15], 0, 0, 34, chunks[0])
+            for r_idx in range(len(doc.tables[16].rows)):
+                if r_idx + 1 < len(chunks):
+                    _fill_grid(doc.tables[16], r_idx, 0, 34, chunks[r_idx + 1])
 
         # INN (T17)
         _fill_grid(doc.tables[17], 0, 0, 34, str(data.get("employer_inn") or ""))

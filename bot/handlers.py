@@ -23,6 +23,8 @@ class DocumentFlow(StatesGroup):
     waiting_for_inn         = State()
     waiting_for_phone       = State()
     waiting_for_profession  = State()
+    waiting_for_contract_date = State()
+    waiting_for_contract_end = State()
     waiting_for_patent_date = State()
     waiting_for_dms_number  = State()
     waiting_for_dms_issue_date = State()
@@ -339,6 +341,29 @@ async def process_profession(message: types.Message, state: FSMContext):
         
     await state.update_data(extracted_data=ext_data)
     
+    await message.answer("📅 Введите дату заключения гражданско-правового договора (ДД.ММ.ГГГГ):", reply_markup=_get_cancel_kb())
+    await state.set_state(DocumentFlow.waiting_for_contract_date)
+
+@router.message(DocumentFlow.waiting_for_contract_date)
+async def process_contract_date(message: types.Message, state: FSMContext):
+    val = message.text.strip()
+    if not _validate_date(val):
+        await message.answer("❌ Формат: ДД.ММ.ГГГГ (например, 14.05.2026):")
+        return
+    await state.update_data(contract_date=val)
+    await message.answer("📅 Введите дату окончания гражданско-правового договора (ДД.ММ.ГГГГ):", reply_markup=_get_cancel_kb())
+    await state.set_state(DocumentFlow.waiting_for_contract_end)
+
+@router.message(DocumentFlow.waiting_for_contract_end)
+async def process_contract_end(message: types.Message, state: FSMContext):
+    val = message.text.strip()
+    if not _validate_date(val):
+        await message.answer("❌ Формат: ДД.ММ.ГГГГ (например, 30.11.2026):")
+        return
+    await state.update_data(contract_end_date=val)
+
+    state_data = await state.get_data()
+    ext_data = state_data.get("extracted_data") or {}
     citizen = str(ext_data.get("citizenship") or "").strip().lower()
     needs_patent = not any(k in citizen for k in ("беларус", "казах", "армен", "киргиз", "еаэс"))
     patent_issue_date = str(ext_data.get("patent_issue_date") or "").strip()
@@ -349,6 +374,7 @@ async def process_profession(message: types.Message, state: FSMContext):
     else:
         await message.answer("📄 Введите номер полиса ДМС сотрудника или `-` если отсутствует:", reply_markup=_get_cancel_kb())
         await state.set_state(DocumentFlow.waiting_for_dms_number)
+
 
 
 @router.message(DocumentFlow.waiting_for_patent_date)
