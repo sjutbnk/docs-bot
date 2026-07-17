@@ -218,22 +218,25 @@ def _fill_conclusion_employer_block(doc, data: dict, is_termination: bool = Fals
         okved = "01.13.2"
         _fill_grid(doc.tables[8], 1, 1, len(okved), okved)
 
-        # Employer name (T9-T13, spanning 6 rows total) and OGRN
-        name_rows = [(9,0), (10,0), (11,0), (11,1), (12,0), (13,0)]
+        # Employer name (T9-T11, 4 rows total)
+        name_rows = [(9,0), (10,0), (11,0), (11,1)]
         for t_idx, r_idx in name_rows:
             _fill_grid(doc.tables[t_idx], r_idx, 0, 34, "")
 
+        for i, (t_idx, r_idx) in enumerate(name_rows):
+            _fill_grid(doc.tables[t_idx], r_idx, 0, 34, emp_name[i * 34 : (i + 1) * 34])
+
+        # Clear OGRN/Accreditation tables
+        _fill_grid(doc.tables[12], 0, 0, 34, "")
+        _fill_grid(doc.tables[13], 0, 0, 34, "")
+        _fill_grid(doc.tables[14], 0, 0, 34, "")
+
+        # OGRN placement
+        ogrn = str(data.get("employer_ogrn") or "")
         if emp_type == "ИП":
-            for i, (t_idx, r_idx) in enumerate(name_rows):
-                _fill_grid(doc.tables[t_idx], r_idx, 0, 34, emp_name[i * 34 : (i + 1) * 34])
-            _fill_grid(doc.tables[14], 0, 0, 34, str(data.get("employer_ogrn") or ""))
+            _fill_grid(doc.tables[14], 0, 0, 34, ogrn)
         else:
-            for i in range(3):
-                t_idx, r_idx = name_rows[i]
-                _fill_grid(doc.tables[t_idx], r_idx, 0, 34, emp_name[i * 34 : (i + 1) * 34])
-            t_idx, r_idx = name_rows[3]
-            _fill_grid(doc.tables[t_idx], r_idx, 0, 34, str(data.get("employer_ogrn") or ""))
-            _fill_grid(doc.tables[14], 0, 0, 34, "")
+            _fill_grid(doc.tables[12], 0, 0, 34, ogrn)
 
         # Passport (T15, T16)
         _fill_grid(doc.tables[15], 0, 0, 34, "")
