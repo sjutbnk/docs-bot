@@ -167,3 +167,24 @@ def clean_passport_issued_by(issued_by: str) -> str:
         return ""
     # Just clean up extra spaces and return the full string
     return " ".join(str(issued_by).split())
+
+def format_date_ru(date_str: str) -> str:
+    """Format DD.MM.YYYY into Russian textual date, e.g. «14» мая 2026г."""
+    if not date_str:
+        return ""
+    parts = date_str.split('.')
+    if len(parts) != 3:
+        return date_str
+    day = parts[0].lstrip('0') or '0'
+    months = ["", "января", "февраля", "марта", "апреля", "мая", "июня", 
+              "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+    try:
+        month_idx = int(parts[1])
+        if 1 <= month_idx <= 12:
+            month_str = months[month_idx]
+        else:
+            month_str = parts[1]
+    except ValueError:
+        month_str = parts[1]
+    
+    return f"«{day}» {month_str} {parts[2]}г."

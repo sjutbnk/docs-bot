@@ -58,9 +58,28 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
 
     # ── Contract (Jinja2 template) ──────────────────────────────────────────
     contract_data = data.copy()
-    contract_data["contract_start_date"] = "14.05.2026"
-    contract_data["contract_end_date"]   = "30.11.2026"
-    contract_data["short_name"]          = utils.get_short_name(data.get("full_name") or "")
+    
+    # Dates formatting for contract
+    c_date = str(data.get("contract_date") or "14.05.2026").strip()
+    c_end = str(data.get("contract_end_date") or "30.11.2026").strip()
+    
+    contract_data["contract_start_date"] = c_date
+    contract_data["contract_end_date"]   = c_end
+    contract_data["contract_date_ru"]    = utils.format_date_ru(c_date)
+    contract_data["contract_start_date_ru"] = utils.format_date_ru(c_date)
+    contract_data["contract_end_date_ru"]   = utils.format_date_ru(c_end)
+    
+    # Profession
+    prof = str(data.get("profession") or "Овощевод").strip()
+    contract_data["profession_ru"] = prof.capitalize()
+
+    # Bank info from partner card
+    contract_data["employer_rs"] = str(data.get("employer_account") or "")
+    contract_data["employer_ks"] = str(data.get("employer_corr_account") or "")
+    contract_data["employer_bik"] = str(data.get("employer_bik") or "")
+    contract_data["employer_bank"] = str(data.get("employer_bank") or "")
+
+    contract_data["short_name"] = utils.get_short_name(data.get("full_name") or "")
     
     # Extract clean FIO for short name (e.g. "Ким В.Р.")
     # employer_name at this point is already cleaned by clean_employer_name,

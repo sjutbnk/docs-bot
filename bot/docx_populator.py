@@ -271,6 +271,15 @@ def fill_conclusion_document(doc, data: dict):
     _fill_date(doc.tables[46], 1,
                c_date, *mappings.CONCL_CONTRACT_DATE_CELLS)
 
+    # Submission date (Table 50, row 0: cell 1=day, 3=month, 5=year[2:])
+    sub_date = c_date
+    parts = sub_date.split('.')
+    if len(parts) == 3 and len(doc.tables) > 50:
+        cells50 = _unique_cells(doc.tables[50].rows[0])
+        _set_cell_text(cells50[1], parts[0])
+        _set_cell_text(cells50[3], parts[1])
+        _set_cell_text(cells50[5], parts[2][2:])
+
 
 def fill_termination_document(doc, data: dict):
     """Populate МВД notification of contract termination."""
@@ -279,6 +288,15 @@ def fill_termination_document(doc, data: dict):
     e_date = data.get("contract_end_date") or "30.11.2026"
     _fill_date(doc.tables[46], 1,
                e_date, *mappings.CONCL_CONTRACT_DATE_CELLS)
+
+    # Submission date (Table 50, row 0: cell 1=day, 3=month, 5=year[2:])
+    sub_date = data.get("contract_date") or "14.05.2026"
+    parts = sub_date.split('.')
+    if len(parts) == 3 and len(doc.tables) > 50:
+        cells50 = _unique_cells(doc.tables[50].rows[0])
+        _set_cell_text(cells50[1], parts[0])
+        _set_cell_text(cells50[3], parts[1])
+        _set_cell_text(cells50[5], parts[2][2:])
 
 
 def fill_patent_notification_document(doc, data: dict):
