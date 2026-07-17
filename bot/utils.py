@@ -93,6 +93,14 @@ def normalize_date(date_str: str) -> str:
     return s  # unrecognised — return as-is
 
 
+def add_years(d: datetime.date, years: int) -> datetime.date:
+    """Add years to a date safely, handling Feb 29 leap year boundaries."""
+    try:
+        return d.replace(year=d.year + years)
+    except ValueError:
+        # Happens only when d is Feb 29 and the target year is not a leap year.
+        return d.replace(year=d.year + years, day=28)
+
 def compute_patent_expiry_date(issue_date_str: str) -> str:
     """
     Compute patent expiry date as exactly 1 year after the issue date.
@@ -104,25 +112,12 @@ def compute_patent_expiry_date(issue_date_str: str) -> str:
         normalized = normalize_date(str(issue_date_str).strip())
         parts = normalized.split('.')
         if len(parts) == 3:
-            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
-            try:
-                # Validate date
-                d = datetime.date(year, month, day)
-                # Compute expiry safely
-                exp_year = year + 1
-                if month == 2 and day == 29:
-                    # check if exp_year is leap
-                    is_leap = (exp_year % 4 == 0 and (exp_year % 100 != 0 or exp_year % 400 == 0))
-                    d_day = 29 if is_leap else 28
-                else:
-                    d_day = day
-                return f"{d_day:02d}.{month:02d}.{exp_year}"
-            except ValueError:
-                pass
+            d = datetime.date(int(parts[2]), int(parts[1]), int(parts[0]))
+            d_new = add_years(d, 1)
+            return d_new.strftime("%d.%m.%Y")
     except Exception:
         pass
     return ""
-
 
 def compute_patent_issue_date(expiry_date_str: str) -> str:
     """
@@ -135,21 +130,9 @@ def compute_patent_issue_date(expiry_date_str: str) -> str:
         normalized = normalize_date(str(expiry_date_str).strip())
         parts = normalized.split('.')
         if len(parts) == 3:
-            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
-            try:
-                # Validate date
-                d = datetime.date(year, month, day)
-                # Compute issue safely
-                iss_year = year - 1
-                if month == 2 and day == 29:
-                    # check if iss_year is leap
-                    is_leap = (iss_year % 4 == 0 and (iss_year % 100 != 0 or iss_year % 400 == 0))
-                    d_day = 29 if is_leap else 28
-                else:
-                    d_day = day
-                return f"{d_day:02d}.{month:02d}.{iss_year}"
-            except ValueError:
-                pass
+            d = datetime.date(int(parts[2]), int(parts[1]), int(parts[0]))
+            d_new = add_years(d, -1)
+            return d_new.strftime("%d.%m.%Y")
     except Exception:
         pass
     return ""

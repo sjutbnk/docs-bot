@@ -279,16 +279,18 @@ def fill_conclusion_document(doc, data: dict):
     """Populate МВД notification of contract conclusion."""
     _fill_conclusion_employer_block(doc, data, is_termination=False)
     _fill_conclusion_employee_fields(doc, data)
+    c_date = data.get("contract_date") or "14.05.2026"
     _fill_date(doc.tables[46], 1,
-               "14.05.2026", *mappings.CONCL_CONTRACT_DATE_CELLS)
+               c_date, *mappings.CONCL_CONTRACT_DATE_CELLS)
 
 
 def fill_termination_document(doc, data: dict):
     """Populate МВД notification of contract termination."""
     _fill_conclusion_employer_block(doc, data, is_termination=True)
     _fill_conclusion_employee_fields(doc, data)
+    e_date = data.get("contract_end_date") or "30.11.2026"
     _fill_date(doc.tables[46], 1,
-               "30.11.2026", *mappings.CONCL_CONTRACT_DATE_CELLS)
+               e_date, *mappings.CONCL_CONTRACT_DATE_CELLS)
 
 
 def fill_patent_notification_document(doc, data: dict):
@@ -389,7 +391,8 @@ def fill_patent_notification_document(doc, data: dict):
     _set_cell_text(doc.tables[20].rows[0].cells[2], "V")
 
     # Contract date (T22 row 1): label|D1|D2|sep|M1|M2|sep|Y1|Y2|Y3|Y4
-    _fill_date(doc.tables[22], 1, "14.05.2026",
+    c_date = data.get("contract_date") or "14.05.2026"
+    _fill_date(doc.tables[22], 1, c_date,
                [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
 
     # Employee INN (T23, C1-C12)
@@ -400,8 +403,9 @@ def fill_patent_notification_document(doc, data: dict):
     if dms_num:
         _fill_grid(doc.tables[27], 0, 1, 3, dms_series)
         _fill_grid(doc.tables[27], 0, 7, 12, dms_num)
-        # DMS issue date (T28 row 0, same compact format)
-        _fill_date(doc.tables[28], 0, "14.05.2026",
+        # DMS issue date (T28 row 0) - fallback to contract date if absent
+        dms_issue = str(data.get("dms_issue_date") or data.get("contract_date") or "14.05.2026").strip()
+        _fill_date(doc.tables[28], 0, dms_issue,
                    [1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
     else:
         _fill_grid(doc.tables[27], 0, 1, 3, "")
@@ -417,6 +421,14 @@ def fill_patent_notification_document(doc, data: dict):
     # Submitter name (T44) and submission date (T45)
     # T45: «|day|»|month|20|YY|г.  — C1=day(2), C3=month(2), C5=last2digits of year
     _set_cell_text(doc.tables[44].rows[0].cells[1], full_name.upper())
-    _set_cell_text(doc.tables[45].rows[0].cells[1], "14")
-    _set_cell_text(doc.tables[45].rows[0].cells[3], "05")
-    _set_cell_text(doc.tables[45].rows[0].cells[5], "26")
+    
+    sub_date = data.get("contract_date") or "14.05.2026"
+    parts = sub_date.split('.')
+    if len(parts) == 3:
+        _set_cell_text(doc.tables[45].rows[0].cells[1], parts[0])
+        _set_cell_text(doc.tables[45].rows[0].cells[3], parts[1])
+        _set_cell_text(doc.tables[45].rows[0].cells[5], parts[2][2:])
+    else:
+        _set_cell_text(doc.tables[45].rows[0].cells[1], "")
+        _set_cell_text(doc.tables[45].rows[0].cells[3], "")
+        _set_cell_text(doc.tables[45].rows[0].cells[5], "")
