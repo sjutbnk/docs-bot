@@ -214,12 +214,17 @@ def _fill_conclusion_employer_block(doc, data: dict, is_termination: bool = Fals
         else:
             _set_cell_text(cells_t4[0], "X")
 
-        # Employer name (T9-T13, 34 chars each)
-        for row_offset, t_idx in enumerate(range(9, 14)):
-            _fill_grid(doc.tables[t_idx], 0, 0, 34, emp_name[row_offset * 34 : (row_offset + 1) * 34])
-
-        # OGRN (T14)
-        _fill_grid(doc.tables[14], 0, 0, 34, str(data.get("employer_ogrn") or ""))
+        # Employer name (T9-T13) and OGRN (T14/T12)
+        if emp_type == "ИП":
+            for row_offset, t_idx in enumerate(range(9, 14)):
+                _fill_grid(doc.tables[t_idx], 0, 0, 34, emp_name[row_offset * 34 : (row_offset + 1) * 34])
+            _fill_grid(doc.tables[14], 0, 0, 34, str(data.get("employer_ogrn") or ""))
+        else:
+            for row_offset, t_idx in enumerate(range(9, 12)):
+                _fill_grid(doc.tables[t_idx], 0, 0, 34, emp_name[row_offset * 34 : (row_offset + 1) * 34])
+            _fill_grid(doc.tables[12], 0, 0, 34, "ОГРН " + str(data.get("employer_ogrn") or ""))
+            _fill_grid(doc.tables[13], 0, 0, 34, "")
+            _fill_grid(doc.tables[14], 0, 0, 34, "")
 
         # Passport (T15, T16)
         _fill_grid(doc.tables[15], 0, 0, 34, "")
@@ -257,10 +262,16 @@ def _fill_conclusion_employer_block(doc, data: dict, is_termination: bool = Fals
         # Bottom signature (T49)
         cells49 = _unique_cells(doc.tables[49].rows[0])
         if len(cells49) >= 3:
-            pure_fio = utils.extract_employer_fio(data.get("employer_name") or "")
-            short_name = utils.get_short_name(pure_fio).upper()
-            _set_cell_text(cells49[0], emp_type)
-            _set_cell_text(cells49[2], short_name)
+            if emp_type == "ИП":
+                pure_fio = utils.extract_employer_fio(data.get("employer_name") or "")
+                short_name = utils.get_short_name(pure_fio).upper()
+                _set_cell_text(cells49[0], "ИП")
+                _set_cell_text(cells49[2], short_name)
+            else:
+                director = str(data.get("employer_director") or "").strip()
+                short_dir = utils.get_short_name(director).upper() if director else ""
+                _set_cell_text(cells49[0], "ГЕНЕРАЛЬНЫЙ ДИРЕКТОР")
+                _set_cell_text(cells49[2], short_dir)
 
 
 def fill_conclusion_document(doc, data: dict):

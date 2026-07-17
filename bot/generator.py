@@ -74,8 +74,8 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
     contract_data["profession_ru"] = prof.capitalize()
 
     # Bank info from partner card
-    contract_data["employer_rs"] = str(data.get("employer_account") or "")
-    contract_data["employer_ks"] = str(data.get("employer_corr_account") or "")
+    contract_data["employer_rs"] = str(data.get("employer_rs") or "")
+    contract_data["employer_ks"] = str(data.get("employer_ks") or "")
     contract_data["employer_bik"] = str(data.get("employer_bik") or "")
     contract_data["employer_bank"] = str(data.get("employer_bank") or "")
 
