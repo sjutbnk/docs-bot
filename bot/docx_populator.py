@@ -214,16 +214,25 @@ def _fill_conclusion_employer_block(doc, data: dict, is_termination: bool = Fals
         else:
             _set_cell_text(cells_t4[0], "X")
 
-        # Employer name (T9-T13) and OGRN (T14/T12)
+        # OKVED (T8 row 1)
+        okved = "01.13.2"
+        _fill_grid(doc.tables[8], 1, 1, len(okved), okved)
+
+        # Employer name (T9-T13, spanning 6 rows total) and OGRN
+        name_rows = [(9,0), (10,0), (11,0), (11,1), (12,0), (13,0)]
+        for t_idx, r_idx in name_rows:
+            _fill_grid(doc.tables[t_idx], r_idx, 0, 34, "")
+
         if emp_type == "ИП":
-            for row_offset, t_idx in enumerate(range(9, 14)):
-                _fill_grid(doc.tables[t_idx], 0, 0, 34, emp_name[row_offset * 34 : (row_offset + 1) * 34])
+            for i, (t_idx, r_idx) in enumerate(name_rows):
+                _fill_grid(doc.tables[t_idx], r_idx, 0, 34, emp_name[i * 34 : (i + 1) * 34])
             _fill_grid(doc.tables[14], 0, 0, 34, str(data.get("employer_ogrn") or ""))
         else:
-            for row_offset, t_idx in enumerate(range(9, 12)):
-                _fill_grid(doc.tables[t_idx], 0, 0, 34, emp_name[row_offset * 34 : (row_offset + 1) * 34])
-            _fill_grid(doc.tables[12], 0, 0, 34, "ОГРН " + str(data.get("employer_ogrn") or ""))
-            _fill_grid(doc.tables[13], 0, 0, 34, "")
+            for i in range(3):
+                t_idx, r_idx = name_rows[i]
+                _fill_grid(doc.tables[t_idx], r_idx, 0, 34, emp_name[i * 34 : (i + 1) * 34])
+            t_idx, r_idx = name_rows[3]
+            _fill_grid(doc.tables[t_idx], r_idx, 0, 34, str(data.get("employer_ogrn") or ""))
             _fill_grid(doc.tables[14], 0, 0, 34, "")
 
         # Passport (T15, T16)
@@ -270,7 +279,9 @@ def _fill_conclusion_employer_block(doc, data: dict, is_termination: bool = Fals
             else:
                 director = str(data.get("employer_director") or "").strip()
                 short_dir = utils.get_short_name(director).upper() if director else ""
-                _set_cell_text(cells49[0], "ГЕНЕРАЛЬНЫЙ ДИРЕКТОР")
+                pure_fio = utils.extract_employer_fio(data.get("employer_name") or "")
+                title = f'ДИРЕКТОР ООО "{pure_fio.upper()}"'
+                _set_cell_text(cells49[0], title)
                 _set_cell_text(cells49[2], short_dir)
 
 
