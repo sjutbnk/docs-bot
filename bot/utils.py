@@ -31,7 +31,7 @@ def extract_employer_fio(employer_name: str) -> str:
         r'индивидуальный\s+предприниматель\s+глава\s+крестьянского\s*\(?фермерского\)?\s*хозяйства',
         r'индивидуальный\s+предприниматель',
         r'глава\s+крестьянского\s*\(?фермерского\)?\s*хозяйства',
-        r'общество\s+с\s+ограниченной\s+ответственностью',
+        r'обществ[оа]?\s+с\s+ограниченн?[оиы]й?\s+ответ[сш]?т?венн?[ои]ст?ь?[юя]?',
         r'\bгкфх\b',
         r'\bип\b',   # word boundary: don't strip 'ип' inside names like 'Ипатьев'
         r'\bооо\b',
@@ -42,9 +42,12 @@ def extract_employer_fio(employer_name: str) -> str:
     for p in prefixes:
         text = re.sub(p, '', text, flags=re.IGNORECASE).strip()
     
-    # Strip any leading/trailing quotes or punctuation
-    text = re.sub(r'^[\"\'«»\-\.,]+', '', text)
-    text = re.sub(r'[\"\'«»\-\.,]+$', '', text)
+    # Strip any quotes entirely to avoid duplication and nested brackets
+    text = re.sub(r'[\"\'«»]', '', text).strip()
+    
+    # Strip any leading/trailing punctuation
+    text = re.sub(r'^[\-\.,\s]+', '', text)
+    text = re.sub(r'[\-\.,\s]+$', '', text)
     return text.strip()
 
 
