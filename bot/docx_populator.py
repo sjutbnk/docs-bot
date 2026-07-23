@@ -315,7 +315,7 @@ def fill_termination_document(doc, data: dict):
                e_date, *mappings.CONCL_CONTRACT_DATE_CELLS)
 
     # Submission date (Table 50, row 0: cell 1=day, 3=month, 5=year[2:])
-    sub_date = data.get("contract_date") or "14.05.2026"
+    sub_date = data.get("contract_end_date") or "30.11.2026"
     parts = sub_date.split('.')
     if len(parts) == 3 and len(doc.tables) > 50:
         cells50 = _unique_cells(doc.tables[50].rows[0])

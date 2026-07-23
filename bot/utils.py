@@ -63,7 +63,7 @@ def clean_employer_name(name: str) -> str:
     name_lower = name.lower()
     
     if "ооо" in name_lower or "общество" in name_lower:
-        return f'ООО "{pure_fio}"'
+        return f'Общество с ограниченной ответственностью "{pure_fio}"'
     elif "гкфх" in name_lower or "крестьянск" in name_lower or "фермерск" in name_lower:
         return f"Индивидуальный предприниматель Глава крестьянского (фермерского) хозяйства {pure_fio}"
     elif "ип " in name_lower or "индивидуальный предп" in name_lower or name_lower.startswith("ип"):
