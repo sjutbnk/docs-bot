@@ -59,6 +59,15 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
     # ── Contract (Jinja2 template) ──────────────────────────────────────────
     contract_data = data.copy()
     
+    emp_type = str(data.get("employer_type") or "ИП").strip().upper()
+    ogrn = str(data.get("employer_ogrn") or "").strip()
+    inn = str(data.get("employer_inn") or "").strip()
+    
+    if emp_type == "ИП":
+        contract_data["employer_acting_basis"] = f", действующий на основании. ОГРН {ogrn}, ИНН {inn}"
+    else:
+        contract_data["employer_acting_basis"] = "в лице Директора, действующего на основании Устава"
+    
     # Dates formatting for contract
     c_date = str(data.get("contract_date") or "14.05.2026").strip()
     c_end = str(data.get("contract_end_date") or "30.11.2026").strip()
