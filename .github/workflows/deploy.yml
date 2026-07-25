@@ -8,18 +8,20 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-  steps:
-    - name: Code check
-      uses: actions/checkout@v4
 
-    - name: Deploy via ssh
-      uses: appleboy/ssh-action@1.0.3
-      with:
-        host: ${{ secrets.VPS_HOST }}         # IP-адрес твоего VPS
-        username: ${{ secrets.VPS_USERNAME }}
-        key: ${{ secrets.VPS_SSH_KEY }}       # Приватный SSH-ключ
-        port: ${{ secrets.VPS_PORT }}         # Порт SSH (по умолчанию 22)
-        script: |
-          cd docs-bot/
-          git pull
-          docker compose up -d --build
+    steps:
+      - name: Code check
+        uses: actions/checkout@v4
+
+      - name: Deploy via ssh
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            cd docs-bot/
+            git fetch origin main
+            git pull
+            docker compose up -d --build
