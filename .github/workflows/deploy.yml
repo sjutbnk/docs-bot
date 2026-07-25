@@ -13,27 +13,14 @@ jobs:
       - name: Code check
         uses: actions/checkout@v4
 
-      - name: Validate deploy secrets
-        run: |
-          missing=false
-          if [ -z "${{ secrets.VPS_HOST }}" ]; then echo "ERROR: VPS_HOST is not set"; missing=true; fi
-          if [ -z "${{ secrets.VPS_USERNAME }}" ]; then echo "ERROR: VPS_USERNAME is not set"; missing=true; fi
-          if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then echo "ERROR: VPS_SSH_KEY is not set"; missing=true; fi
-          if [ "$missing" = true ]; then
-            echo "One or more required secrets are missing. Please add them in Repository Settings → Secrets and variables → Actions."
-            exit 1
-          fi
-
       - name: Deploy via ssh
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          # default to 22 if VPS_PORT is not provided
-          port: ${{ secrets.VPS_PORT || '22' }}
           script: |
             cd docs-bot/
             git fetch origin main
-            git pull
+            git reset --hard origin/main
             docker compose up -d --build
