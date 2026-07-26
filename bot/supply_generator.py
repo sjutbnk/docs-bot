@@ -107,9 +107,13 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
 
     context = {
         # Вводный абзац (шапка договора)
-        "supplier_intro":       s_title,
+        "supplier_intro":       str(data.get("supplier_name") or s_title).strip(),
         "supplier_basis":       s_basis,
-        "buyer_intro":          b_title,
+        "buyer_intro":          str(data.get("buyer_name") or b_title).strip(),
+
+        # Сроки (из FSM)
+        "contract_end_date":    str(data.get("contract_end_date") or ""),
+        "delivery_days":        str(data.get("delivery_days") or ""),
 
         # Поставщик — реквизиты
         "supplier_title":       s_title,

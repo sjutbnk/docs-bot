@@ -32,6 +32,11 @@ class DocumentFlow(StatesGroup):
     waiting_for_dms_date    = State()
 
 
+class SupplyFlow(StatesGroup):
+    waiting_for_end_date     = State()   # дата окончания договора
+    waiting_for_delivery_days = State()  # срок поставки (дней)
+
+
 # ---------------------------------------------------------------------------
 # Per-user in-memory storage
 # ---------------------------------------------------------------------------
@@ -369,16 +374,11 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
     except Exception:
         pass
 
-    # --- Supply contract mode: generate and send immediately ---
+    # --- Supply contract mode: ask for end date ---
     if mode == "supply":
-        try:
-            output_dir = os.path.join(config.OUTPUT_DIR, str(user_id))
-            os.makedirs(output_dir, exist_ok=True)
-            path = await asyncio.to_thread(supply_generator.generate_supply_contract, data, output_dir)
-            await reply_to.answer_document(FSInputFile(path), caption="📦 Договор поставки готов!")
-        except Exception as e:
-            await reply_to.answer(f"❌ Ошибка при генерации договора поставки: {e}")
-            config.logger.error("supply_generator failed", exc_info=True)
+        await state.update_data(extracted_data=data)
+        await reply_to.answer("📅 Введите срок окончания договора поставки (например, 31.12.2026):", reply_markup=_get_cancel_kb())
+        await state.set_state(SupplyFlow.waiting_for_end_date)
         return
 
     await state.update_data(extracted_data=data)
@@ -602,3 +602,46 @@ async def cb_generate(callback: types.CallbackQuery, state: FSMContext):
         config.logger.error("cb_generate failed", exc_info=True)
 
     await callback.answer()
+
+# ---------------------------------------------------------------------------
+# Supply Contract Flow
+# ---------------------------------------------------------------------------
+
+@router.message(SupplyFlow.waiting_for_end_date)
+async def supply_end_date(message: types.Message, state: FSMContext):
+    if message.text.strip().lower() == "🔙 отмена":
+        await state.clear()
+        await message.answer("❌ Операция отменена. Возврат в главное меню.", reply_markup=types.ReplyKeyboardRemove())
+        return
+    await state.update_data(contract_end_date=message.text.strip())
+    await message.answer("🚚 Введите срок поставки товара в днях (например, 3):", reply_markup=_get_cancel_kb())
+    await state.set_state(SupplyFlow.waiting_for_delivery_days)
+
+@router.message(SupplyFlow.waiting_for_delivery_days)
+async def supply_delivery_days(message: types.Message, state: FSMContext):
+    if message.text.strip().lower() == "🔙 отмена":
+        await state.clear()
+        await message.answer("❌ Операция отменена. Возврат в главное меню.", reply_markup=types.ReplyKeyboardRemove())
+        return
+    await state.update_data(delivery_days=message.text.strip())
+    
+    data = await state.get_data()
+    extracted = data["extracted_data"]
+    extracted["contract_end_date"] = data["contract_end_date"]
+    extracted["delivery_days"] = data["delivery_days"]
+    
+    await state.clear()
+    
+    user_id = message.from_user.id
+    output_dir = os.path.join(config.OUTPUT_DIR, str(user_id))
+    os.makedirs(output_dir, exist_ok=True)
+    msg = await message.answer("⏳ Генерация договора поставки...")
+    
+    try:
+        path = await asyncio.to_thread(supply_generator.generate_supply_contract, extracted, output_dir)
+        await message.answer_document(FSInputFile(path), caption="📦 Договор поставки готов!", reply_markup=types.ReplyKeyboardRemove())
+        await msg.delete()
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при генерации договора поставки: {e}", reply_markup=types.ReplyKeyboardRemove())
+        config.logger.error("supply_generator failed", exc_info=True)
+
