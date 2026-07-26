@@ -173,3 +173,59 @@ def extract_data_from_images(image_paths: list) -> dict:
     validated_data = _parse_json_response(phase2_response.text)
 
     return validated_data
+
+
+def extract_supply_contract_data(image_paths: list) -> dict:
+    """
+    Extract supplier and buyer data from two uploaded Partner Cards for supply contract generation.
+    Uses a dedicated prompt that expects two-party data.
+    """
+    if not config.GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY не задан. Получите ключ на aistudio.google.com")
+
+    client = genai.Client(api_key=config.GEMINI_API_KEY)
+
+    uploaded_files = []
+    local_text_blocks = []
+
+    for path in image_paths:
+        ext = os.path.splitext(path)[1].lower()
+        if ext == '.docx':
+            try:
+                config.logger.info(f"Reading DOCX locally: {path}")
+                text = _read_docx_as_text(path)
+                local_text_blocks.append(
+                    f"=== Содержимое документа {os.path.basename(path)} ===\n{text}"
+                )
+            except Exception as e:
+                config.logger.error(f"Failed to read DOCX {path}: {e}")
+        elif ext == '.txt':
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    local_text_blocks.append(
+                        f"=== Содержимое документа {os.path.basename(path)} ===\n{f.read()}"
+                    )
+            except Exception as e:
+                config.logger.error(f"Failed to read TXT {path}: {e}")
+        else:
+            config.logger.info(f"Uploading to Gemini Files API: {path}")
+            safe_ext = ext if ext else ".bin"
+            with tempfile.NamedTemporaryFile(suffix=safe_ext, delete=False) as tmp:
+                tmp_path = tmp.name
+            try:
+                shutil.copy2(path, tmp_path)
+                uploaded_files.append(client.files.upload(file=tmp_path))
+            finally:
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
+
+    extraction_prompt = prompts.SUPPLY_CONTRACT_PROMPT
+    if local_text_blocks:
+        extraction_prompt += "\n\n" + "\n\n".join(local_text_blocks)
+
+    response = _generate_with_fallback(client, [extraction_prompt] + uploaded_files)
+    data = _parse_json_response(response.text)
+    return data
+

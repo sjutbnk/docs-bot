@@ -5,13 +5,14 @@ import re
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 import config
 import extractor
 import generator
+import supply_generator
 
 router = Router()
 
@@ -35,10 +36,12 @@ class DocumentFlow(StatesGroup):
 # Per-user in-memory storage
 # ---------------------------------------------------------------------------
 
-user_files:          dict[int, list[str]] = {}
+user_files:    dict[int, list[str]] = {}
+user_last_msg: dict[int, int | None] = {}
+user_locks:    dict[int, asyncio.Lock] = {}
+# mode: "hr" (HR documents) or "supply" (supply contract)
+user_mode:     dict[int, str] = {}
 
-user_last_msg:       dict[int, int | None] = {}
-user_locks:          dict[int, asyncio.Lock] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -173,12 +176,66 @@ async def go_back(message: types.Message, state: FSMContext):
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
+    builder = InlineKeyboardBuilder()
+    builder.button(text="👷 Кадровые документы", callback_data="mode_hr")
+    builder.button(text="📦 Договор поставки", callback_data="mode_supply")
+    builder.adjust(1)
     await message.answer(
-        "Система генерации кадровых документов.\n\n"
+        "Система генерации документов.\n\n"
+        "Выберите режим работы:",
+        reply_markup=builder.as_markup(),
+    )
+
+
+@router.callback_query(F.data == "mode_hr")
+async def mode_hr(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    user_mode[callback.from_user.id] = "hr"
+    user_files[callback.from_user.id] = []
+    await callback.message.edit_text(
+        "👷 Режим: кадровые документы.\n\n"
         "Отправьте сканы / фото документов сотрудника:\n"
         "• перевод паспорта\n• патент\n• карта партнёра (необязательно)\n\n"
-        "После загрузки нажмите кнопку «⚙️ Запустить обработку»."
+        "После загрузки нажмите «⚙️ Запустить обработку»."
     )
+
+
+@router.callback_query(F.data == "mode_supply")
+async def mode_supply(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    user_mode[callback.from_user.id] = "supply"
+    user_files[callback.from_user.id] = []
+    import os
+    tpl = os.path.join(config.TEMPLATES_DIR, "template_supply_contract.docx")
+    if not os.path.exists(tpl):
+        await callback.message.edit_text(
+            "📦 Режим: договор поставки.\n\n"
+            "⚠️ Шаблон договора поставки не загружен. \n"
+            "Пожалуйста, отправьте файл шаблона сейчас (команда /settemplate для админа)."
+        )
+        return
+    await callback.message.edit_text(
+        "📦 Режим: договор поставки.\n\n"
+        "Отправьте **две** Карты партнёра (docx или фото):\n"
+        "🔸 первая — Поставщик\n"
+        "🔸 вторая — Покупатель\n\n"
+        "После загрузки нажмите «⚙️ Запустить обработку»."
+    )
+
+
+# ---------------------------------------------------------------------------
+# /settemplate — admin uploads supply contract template
+# ---------------------------------------------------------------------------
+
+@router.message(Command("settemplate"))
+async def cmd_settemplate(message: types.Message, state: FSMContext):
+    await state.set_state(None)  # clear FSM, any state
+    await message.answer(
+        "📂 Отправьте .docx файл шаблона Договора поставки следующим сообщением."
+    )
+    user_mode[message.from_user.id] = "set_supply_template"
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +245,18 @@ async def cmd_start(message: types.Message, state: FSMContext):
 @router.message(F.photo | F.document)
 async def handle_files(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
+
+    # --- Special case: admin is uploading a supply contract template ---
+    if user_mode.get(user_id) == "set_supply_template":
+        if message.document and message.document.file_name.lower().endswith(".docx"):
+            file = await message.bot.get_file(message.document.file_id)
+            tpl_path = os.path.join(config.TEMPLATES_DIR, "template_supply_contract.docx")
+            await message.bot.download_file(file.file_path, tpl_path)
+            user_mode.pop(user_id, None)
+            await message.answer("✅ Шаблон договора поставки успешно сохранён!\nТеперь вы можете использовать режим «📦 Договор поставки».")
+        else:
+            await message.answer("❌ Пожалуйста, отправьте файл в формате .docx")
+        return
 
     if user_id not in user_locks:
         user_locks[user_id] = asyncio.Lock()
@@ -221,6 +290,7 @@ async def handle_files(message: types.Message, state: FSMContext):
         if prev_msg_id:
             try:
                 await bot.delete_message(chat_id=message.chat.id, message_id=prev_msg_id)
+
             except Exception:
                 pass
 
@@ -269,8 +339,13 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
 
     anim_task = asyncio.create_task(animate_msg())
 
+    mode = user_mode.get(user_id, "hr")
+
     try:
-        data = await asyncio.to_thread(extractor.extract_data_from_images, files)
+        if mode == "supply":
+            data = await asyncio.to_thread(extractor.extract_supply_contract_data, files)
+        else:
+            data = await asyncio.to_thread(extractor.extract_data_from_images, files)
     except Exception as e:
         err = str(e)
         if "429" in err or "quota" in err.lower() or "exhausted" in err.lower():
@@ -280,7 +355,7 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
         else:
             msg = f"❌ Ошибка при обработке: {err}"
         await reply_to.answer(msg)
-        config.logger.error("extract_data_from_images failed", exc_info=True)
+        config.logger.error("extraction failed", exc_info=True)
         await state.clear()
         return
     finally:
@@ -294,6 +369,18 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
     except Exception:
         pass
 
+    # --- Supply contract mode: generate and send immediately ---
+    if mode == "supply":
+        try:
+            output_dir = os.path.join(config.OUTPUT_DIR, str(user_id))
+            os.makedirs(output_dir, exist_ok=True)
+            path = await asyncio.to_thread(supply_generator.generate_supply_contract, data, output_dir)
+            await reply_to.answer_document(FSInputFile(path), caption="📦 Договор поставки готов!")
+        except Exception as e:
+            await reply_to.answer(f"❌ Ошибка при генерации договора поставки: {e}")
+            config.logger.error("supply_generator failed", exc_info=True)
+        return
+
     await state.update_data(extracted_data=data)
 
     # Check INN — prompt manually if missing or invalid
@@ -305,6 +392,7 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
         await state.update_data(inn=inn)
         await reply_to.answer("📱 Введите контактный телефон сотрудника (11 цифр, например 89000000000):", reply_markup=_get_cancel_kb())
         await state.set_state(DocumentFlow.waiting_for_phone)
+
 
 
 # ---------------------------------------------------------------------------
