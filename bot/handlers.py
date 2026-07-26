@@ -33,8 +33,8 @@ class DocumentFlow(StatesGroup):
 
 
 class SupplyFlow(StatesGroup):
+    waiting_for_start_date   = State()   # дата начала договора
     waiting_for_end_date     = State()   # дата окончания договора
-    waiting_for_delivery_days = State()  # срок поставки (дней)
 
 
 # ---------------------------------------------------------------------------
@@ -222,8 +222,8 @@ async def mode_supply(message: types.Message, state: FSMContext):
     await message.answer(
         "📦 Режим: договор поставки.\n\n"
         "Отправьте две Карты партнёра (docx или фото):\n"
-        "🔸 1 — Поставщик\n"
-        "🔸 2 — Покупатель\n\n"
+        "1 — Поставщик\n"
+        "2 — Покупатель\n\n"
         "После загрузки нажмите «⚙️ Запустить обработку» (кнопка появится под сообщением)."
     )
 
@@ -374,11 +374,11 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
     except Exception:
         pass
 
-    # --- Supply contract mode: ask for end date ---
+    # --- Supply contract mode: ask for start date ---
     if mode == "supply":
         await state.update_data(extracted_data=data)
-        await reply_to.answer("📅 Введите срок окончания договора поставки (например, 31.12.2026):", reply_markup=_get_cancel_kb())
-        await state.set_state(SupplyFlow.waiting_for_end_date)
+        await reply_to.answer("📅 Введите дату начала договора поставки (например, 08.06.2026):", reply_markup=_get_cancel_kb())
+        await state.set_state(SupplyFlow.waiting_for_start_date)
         return
 
     await state.update_data(extracted_data=data)
@@ -607,6 +607,16 @@ async def cb_generate(callback: types.CallbackQuery, state: FSMContext):
 # Supply Contract Flow
 # ---------------------------------------------------------------------------
 
+@router.message(SupplyFlow.waiting_for_start_date)
+async def supply_start_date(message: types.Message, state: FSMContext):
+    if message.text.strip().lower() == "🔙 отмена":
+        await state.clear()
+        await message.answer("❌ Операция отменена. Возврат в главное меню.", reply_markup=types.ReplyKeyboardRemove())
+        return
+    await state.update_data(contract_start_date=message.text.strip())
+    await message.answer("📅 Введите срок окончания договора поставки (например, 31.12.2026):", reply_markup=_get_cancel_kb())
+    await state.set_state(SupplyFlow.waiting_for_end_date)
+
 @router.message(SupplyFlow.waiting_for_end_date)
 async def supply_end_date(message: types.Message, state: FSMContext):
     if message.text.strip().lower() == "🔙 отмена":
@@ -614,21 +624,11 @@ async def supply_end_date(message: types.Message, state: FSMContext):
         await message.answer("❌ Операция отменена. Возврат в главное меню.", reply_markup=types.ReplyKeyboardRemove())
         return
     await state.update_data(contract_end_date=message.text.strip())
-    await message.answer("🚚 Введите срок поставки товара в днях (например, 3):", reply_markup=_get_cancel_kb())
-    await state.set_state(SupplyFlow.waiting_for_delivery_days)
-
-@router.message(SupplyFlow.waiting_for_delivery_days)
-async def supply_delivery_days(message: types.Message, state: FSMContext):
-    if message.text.strip().lower() == "🔙 отмена":
-        await state.clear()
-        await message.answer("❌ Операция отменена. Возврат в главное меню.", reply_markup=types.ReplyKeyboardRemove())
-        return
-    await state.update_data(delivery_days=message.text.strip())
     
     data = await state.get_data()
     extracted = data["extracted_data"]
+    extracted["contract_start_date"] = data["contract_start_date"]
     extracted["contract_end_date"] = data["contract_end_date"]
-    extracted["delivery_days"] = data["delivery_days"]
     
     await state.clear()
     

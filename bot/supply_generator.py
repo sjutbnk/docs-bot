@@ -112,8 +112,8 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         "buyer_intro":          str(data.get("buyer_name") or b_title).strip(),
 
         # Сроки (из FSM)
+        "contract_start_date":  str(data.get("contract_start_date") or ""),
         "contract_end_date":    str(data.get("contract_end_date") or ""),
-        "delivery_days":        str(data.get("delivery_days") or ""),
 
         # Поставщик — реквизиты
         "supplier_title":       s_title,
