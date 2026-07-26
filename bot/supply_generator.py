@@ -106,10 +106,14 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         b_ogrn_label = "ОГРНИП"
 
     context = {
-        # Поставщик
+        # Вводный абзац (шапка договора)
+        "supplier_intro":       s_title,
+        "supplier_basis":       s_basis,
+        "buyer_intro":          b_title,
+
+        # Поставщик — реквизиты
         "supplier_title":       s_title,
         "supplier_rep":         s_rep,
-        "supplier_basis":       s_basis,
         "supplier_name":        s_name,
         "supplier_inn":         str(data.get("supplier_inn") or ""),
         "supplier_ogrn":        str(data.get("supplier_ogrn") or ""),
@@ -122,7 +126,7 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         "supplier_sign_title":  s_sign_title,
         "supplier_sign_name":   s_sign_name,
 
-        # Покупатель
+        # Покупатель — реквизиты
         "buyer_title":          b_title,
         "buyer_rep":            b_rep,
         "buyer_basis":          b_basis,
