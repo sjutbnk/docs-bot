@@ -176,50 +176,50 @@ async def go_back(message: types.Message, state: FSMContext):
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
-    builder = InlineKeyboardBuilder()
-    builder.button(text="👷 Кадровые документы", callback_data="mode_hr")
-    builder.button(text="📦 Договор поставки", callback_data="mode_supply")
+    builder = ReplyKeyboardBuilder()
+    builder.button(text="👷 Кадровые документы")
+    builder.button(text="📦 Договор поставки")
     builder.adjust(1)
     await message.answer(
         "Система генерации документов.\n\n"
-        "Выберите режим работы:",
-        reply_markup=builder.as_markup(),
+        "Выберите режим работы в меню ниже:",
+        reply_markup=builder.as_markup(resize_keyboard=True),
     )
 
 
-@router.callback_query(F.data == "mode_hr")
-async def mode_hr(callback: types.CallbackQuery, state: FSMContext):
+@router.message(F.text == "👷 Кадровые документы")
+async def mode_hr(message: types.Message, state: FSMContext):
     await state.clear()
-    user_mode[callback.from_user.id] = "hr"
-    user_files[callback.from_user.id] = []
-    await callback.message.edit_text(
+    user_mode[message.from_user.id] = "hr"
+    user_files[message.from_user.id] = []
+    await message.answer(
         "👷 Режим: кадровые документы.\n\n"
         "Отправьте сканы / фото документов сотрудника:\n"
         "• перевод паспорта\n• патент\n• карта партнёра (необязательно)\n\n"
-        "После загрузки нажмите «⚙️ Запустить обработку»."
+        "После загрузки нажмите «⚙️ Запустить обработку» (кнопка появится под сообщением)."
     )
 
 
-@router.callback_query(F.data == "mode_supply")
-async def mode_supply(callback: types.CallbackQuery, state: FSMContext):
+@router.message(F.text == "📦 Договор поставки")
+async def mode_supply(message: types.Message, state: FSMContext):
     await state.clear()
-    user_mode[callback.from_user.id] = "supply"
-    user_files[callback.from_user.id] = []
+    user_mode[message.from_user.id] = "supply"
+    user_files[message.from_user.id] = []
     import os
     tpl = os.path.join(config.TEMPLATES_DIR, "template_supply_contract.docx")
     if not os.path.exists(tpl):
-        await callback.message.edit_text(
+        await message.answer(
             "📦 Режим: договор поставки.\n\n"
             "⚠️ Шаблон договора поставки не загружен. \n"
             "Пожалуйста, отправьте файл шаблона сейчас (команда /settemplate для админа)."
         )
         return
-    await callback.message.edit_text(
+    await message.answer(
         "📦 Режим: договор поставки.\n\n"
         "Отправьте **две** Карты партнёра (docx или фото):\n"
         "🔸 первая — Поставщик\n"
         "🔸 вторая — Покупатель\n\n"
-        "После загрузки нажмите «⚙️ Запустить обработку»."
+        "После загрузки нажмите «⚙️ Запустить обработку» (кнопка появится под сообщением)."
     )
 
 
