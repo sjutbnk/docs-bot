@@ -93,6 +93,7 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         s_sign_title = "Директор"
         s_sign_name = _short(s_rep)
         s_ogrn_label = "ОГРН"
+        s_sign_org = f'Директор ООО "{s_fio}"'
     else:
         s_title = f"ИП {s_fio}"
         s_rep = s_fio
@@ -108,6 +109,10 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         s_sign_title = "ИП"
         s_sign_name = _short(s_fio)
         s_ogrn_label = "ОГРНИП"
+        if "глава крестьянского" in s_name.lower() or "гкфх" in s_name.lower():
+            s_sign_org = f"ИП ГКФХ {s_sign_name}"
+        else:
+            s_sign_org = f"ИП {s_sign_name}"
 
     if b_type in ("ЮРЛИЦО", "ЮрЛицо".upper()):
         b_title = f'ООО "{b_fio}"'
@@ -116,6 +121,7 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         b_sign_title = "Директор"
         b_sign_name = _short(b_rep)
         b_ogrn_label = "ОГРН"
+        b_sign_org = f'Директор ООО "{b_fio}"'
     else:
         b_title = f"ИП {b_fio}"
         b_rep = b_fio
@@ -131,6 +137,10 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         b_sign_title = "ИП"
         b_sign_name = _short(b_fio)
         b_ogrn_label = "ОГРНИП"
+        if "глава крестьянского" in b_name.lower() or "гкфх" in b_name.lower():
+            b_sign_org = f"ИП ГКФХ {b_sign_name}"
+        else:
+            b_sign_org = f"ИП {b_sign_name}"
 
     context = {
         # Вводный абзац (шапка договора)
@@ -156,6 +166,7 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         "supplier_bank":        str(data.get("supplier_bank") or ""),
         "supplier_sign_title":  s_sign_title,
         "supplier_sign_name":   s_sign_name,
+        "supplier_sign_org":    s_sign_org,
 
         # Покупатель — реквизиты
         "buyer_title":          b_title,
@@ -172,6 +183,7 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         "buyer_bank":           str(data.get("buyer_bank") or ""),
         "buyer_sign_title":     b_sign_title,
         "buyer_sign_name":      b_sign_name,
+        "buyer_sign_org":       b_sign_org,
     }
 
     doc.render(context)
