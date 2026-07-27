@@ -37,6 +37,33 @@ def _short(full_name: str) -> str:
     return utils.get_short_name(full_name)
 
 
+def format_supply_date(date_str: str) -> str:
+    if not date_str:
+        return ""
+    date_str = utils.normalize_date(date_str)
+    parts = date_str.split('.')
+    if len(parts) != 3:
+        return date_str
+    
+    day = parts[0].zfill(2)
+    year = parts[2]
+    if len(year) == 2:
+        year = "20" + year
+
+    months = ["", "января", "февраля", "марта", "апреля", "мая", "июня", 
+              "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+    try:
+        month_idx = int(parts[1])
+        if 1 <= month_idx <= 12:
+            month_str = months[month_idx]
+        else:
+            month_str = parts[1]
+    except ValueError:
+        month_str = parts[1]
+    
+    return f'"{day}" {month_str} {year} г.'
+
+
 def generate_supply_contract(data: dict, output_dir: str) -> str:
     """
     Fill template_supply_contract.docx with supplier/buyer data and save to output_dir.
@@ -112,8 +139,8 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         "buyer_intro":          str(data.get("buyer_name") or b_title).strip(),
 
         # Сроки (из FSM)
-        "contract_start_date":  str(data.get("contract_start_date") or ""),
-        "contract_end_date":    str(data.get("contract_end_date") or ""),
+        "contract_start_date":  format_supply_date(str(data.get("contract_start_date") or "")),
+        "contract_end_date":    format_supply_date(str(data.get("contract_end_date") or "")),
 
         # Поставщик — реквизиты
         "supplier_title":       s_title,
