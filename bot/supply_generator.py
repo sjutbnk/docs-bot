@@ -76,6 +76,7 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
     Returns the path to the generated file.
     """
     data = dict(data or {})
+    os.makedirs(output_dir, exist_ok=True)
     contract_type = str(data.get("contract_type") or "no_vat").strip().lower()
     if contract_type not in ("vat", "no_vat"):
         raise ValueError("Неизвестный тип договора поставки")
