@@ -4,6 +4,7 @@ import zipfile
 from pathlib import Path
 
 import supply_generator
+import utils
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -54,3 +55,14 @@ def test_supply_contract_templates_generate_documents(tmp_path, monkeypatch):
         with zipfile.ZipFile(output_path) as document:
             assert "[Content_Types].xml" in document.namelist()
             assert "word/document.xml" in document.namelist()
+
+
+def test_supply_dates_require_real_ordered_calendar_dates():
+    assert utils.is_valid_date("29.02.2028")
+    assert not utils.is_valid_date("29.02.2027")
+    assert utils.dates_are_ordered("01.06.2026", "30.06.2026")
+    assert not utils.dates_are_ordered("30.06.2026", "01.06.2026")
+
+
+def test_farmer_signature_has_no_position_wording():
+    assert supply_generator._ip_signature("Иванов Иван Иванович") == "ИП Иванов И.И."

@@ -96,6 +96,27 @@ def normalize_date(date_str: str) -> str:
     return s  # unrecognised — return as-is
 
 
+def is_valid_date(date_str: str) -> bool:
+    """Return True only for a real calendar date in DD.MM.YYYY format."""
+    normalized = normalize_date(str(date_str or "").strip())
+    if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", normalized):
+        return False
+    try:
+        datetime.datetime.strptime(normalized, "%d.%m.%Y")
+    except ValueError:
+        return False
+    return True
+
+
+def dates_are_ordered(start: str, end: str) -> bool:
+    """Return True when both dates are valid and end is not before start."""
+    if not is_valid_date(start) or not is_valid_date(end):
+        return False
+    start_date = datetime.datetime.strptime(normalize_date(start), "%d.%m.%Y")
+    end_date = datetime.datetime.strptime(normalize_date(end), "%d.%m.%Y")
+    return end_date >= start_date
+
+
 def add_years(d: datetime.date, years: int) -> datetime.date:
     """Add years to a date safely, handling Feb 29 leap year boundaries."""
     try:

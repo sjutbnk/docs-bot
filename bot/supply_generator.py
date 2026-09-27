@@ -75,7 +75,15 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
     Fill template_supply_contract.docx with supplier/buyer data and save to output_dir.
     Returns the path to the generated file.
     """
+    data = dict(data or {})
     contract_type = str(data.get("contract_type") or "no_vat").strip().lower()
+    if contract_type not in ("vat", "no_vat"):
+        raise ValueError("Неизвестный тип договора поставки")
+    if not utils.dates_are_ordered(
+        str(data.get("contract_start_date") or ""),
+        str(data.get("contract_end_date") or ""),
+    ):
+        raise ValueError("Укажите корректные даты начала и окончания договора поставки")
     template_names = {
         "vat": "template_supply_contract_vat.docx",
         "no_vat": "template_supply_contract_no_vat.docx",

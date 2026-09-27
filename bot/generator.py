@@ -20,6 +20,7 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
     Returns:
         Tuple of (contract_path, conclusion_path, termination_path, patent_notif_path)
     """
+    data = dict(data or {})
     os.makedirs(output_dir, exist_ok=True)
 
     # 1. Merge default employer if no Partner Card was uploaded
@@ -64,13 +65,23 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
     inn = str(data.get("employer_inn") or "").strip()
     
     if emp_type == "ИП":
-        contract_data["employer_acting_basis"] = f", действующий на основании. ОГРН {ogrn}, ИНН {inn}"
+        basis = []
+        if ogrn:
+            basis.append(f"ОГРНИП {ogrn}")
+        if inn:
+            basis.append(f"ИНН {inn}")
+        contract_data["employer_acting_basis"] = (
+            ", действующий на основании " + ", ".join(basis)
+            if basis else ", действующий на основании ОГРНИП"
+        )
     else:
         contract_data["employer_acting_basis"] = "в лице Директора, действующего на основании Устава"
     
     # Dates formatting for contract
-    c_date = str(data.get("contract_date") or "14.05.2026").strip()
-    c_end = str(data.get("contract_end_date") or "30.11.2026").strip()
+    c_date = str(data.get("contract_date") or "").strip()
+    c_end = str(data.get("contract_end_date") or "").strip()
+    if not utils.dates_are_ordered(c_date, c_end):
+        raise ValueError("Укажите корректные даты начала и окончания договора")
     
     contract_data["contract_start_date"] = c_date
     contract_data["contract_end_date"]   = c_end

@@ -1,6 +1,7 @@
 import os
 import asyncio
 import re
+import utils
 
 from aiogram import Router, types, F
 from aiogram.filters import Command
@@ -47,6 +48,8 @@ user_last_msg: dict[int, int | None] = {}
 user_locks:    dict[int, asyncio.Lock] = {}
 # mode: "hr" (HR documents) or "supply" (supply contract)
 user_mode:     dict[int, str] = {}
+user_processing: set[int] = set()
+user_generation: set[int] = set()
 
 
 
@@ -58,7 +61,26 @@ def _validate_inn(value: str) -> bool:
     return bool(re.fullmatch(r"\d{12}", value))
 
 def _validate_date(value: str) -> bool:
-    return bool(re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value))
+    return utils.is_valid_date(value)
+
+
+def _cleanup_user_files(user_id: int):
+    for path in user_files.pop(user_id, []):
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            config.logger.warning("Could not remove uploaded file %s", path, exc_info=True)
+    user_last_msg.pop(user_id, None)
+
+
+async def _reset_user_session(user_id: int, state: FSMContext):
+    await state.clear()
+    _cleanup_user_files(user_id)
+    user_mode.pop(user_id, None)
+    user_processing.discard(user_id)
+    user_generation.discard(user_id)
 
 
 def _build_generation_menu(citizenship: str = ""):
@@ -122,7 +144,7 @@ def _get_cancel_kb():
 
 @router.message(F.text == "❌ Отмена")
 async def cancel_flow(message: types.Message, state: FSMContext):
-    await state.clear()
+    await _reset_user_session(message.from_user.id, state)
     await message.answer("Действие отменено. Загрузите файлы заново, чтобы начать новую генерацию.", reply_markup=types.ReplyKeyboardRemove())
 
 @router.message(F.text == "🔙 Назад")
@@ -181,7 +203,7 @@ async def go_back(message: types.Message, state: FSMContext):
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
-    await state.clear()
+    await _reset_user_session(message.from_user.id, state)
     builder = ReplyKeyboardBuilder()
     builder.button(text="👷 Кадровые документы")
     builder.button(text="📦 Договор поставки")
@@ -195,7 +217,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
 @router.message(F.text == "👷 Кадровые документы")
 async def mode_hr(message: types.Message, state: FSMContext):
-    await state.clear()
+    await _reset_user_session(message.from_user.id, state)
     user_mode[message.from_user.id] = "hr"
     user_files[message.from_user.id] = []
     await message.answer(
@@ -208,12 +230,15 @@ async def mode_hr(message: types.Message, state: FSMContext):
 
 @router.message(F.text == "📦 Договор поставки")
 async def mode_supply(message: types.Message, state: FSMContext):
-    await state.clear()
+    await _reset_user_session(message.from_user.id, state)
     user_mode[message.from_user.id] = "supply"
     user_files[message.from_user.id] = []
     import os
-    tpl = os.path.join(config.TEMPLATES_DIR, "template_supply_contract.docx")
-    if not os.path.exists(tpl):
+    supply_templates = (
+        "template_supply_contract_vat.docx",
+        "template_supply_contract_no_vat.docx",
+    )
+    if not any(os.path.exists(os.path.join(config.TEMPLATES_DIR, name)) for name in supply_templates):
         await message.answer(
             "📦 Режим: договор поставки.\n\n"
             "⚠️ Шаблон договора поставки не загружен. \n"
@@ -235,7 +260,10 @@ async def mode_supply(message: types.Message, state: FSMContext):
 
 @router.message(Command("settemplate"))
 async def cmd_settemplate(message: types.Message, state: FSMContext):
-    await state.set_state(None)  # clear FSM, any state
+    if message.from_user.id not in config.ADMIN_USER_IDS:
+        await message.answer("❌ Команда доступна только администратору.")
+        return
+    await _reset_user_session(message.from_user.id, state)
     await message.answer(
         "📂 Отправьте .docx файл шаблона Договора поставки следующим сообщением."
     )
@@ -315,11 +343,15 @@ async def handle_files(message: types.Message, state: FSMContext):
 # ---------------------------------------------------------------------------
 
 async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMContext):
+    if user_id in user_processing:
+        await reply_to.answer("⏳ Обработка уже выполняется. Дождитесь результата.")
+        return
     files = user_files.get(user_id)
     if not files:
         await reply_to.answer("⚠️ Файлы не найдены. Сначала отправьте документы.")
         return
 
+    user_processing.add(user_id)
     sent_msg = await reply_to.answer(
         "⏳ Запускаю распознавание и двойную ИИ-проверку данных...\n"
         "Обычно занимает 20 секунд (при нагрузке на серверы — до 2 минут)"
@@ -359,7 +391,7 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
         elif "503" in err or "unavailable" in err.lower() or "overloaded" in err.lower():
             msg = "❌ Серверы нейросети перегружены (бот уже пытался повторить несколько раз). Попробуйте снова через 2–3 минуты."
         else:
-            msg = f"❌ Ошибка при обработке: {err}"
+            msg = "❌ Не удалось обработать документы. Попробуйте еще раз или обратитесь к администратору."
         await reply_to.answer(msg)
         config.logger.error("extraction failed", exc_info=True)
         await state.clear()
@@ -369,6 +401,7 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
         # Always clear files and last-message pointer after attempt
         user_files[user_id] = []
         user_last_msg[user_id] = None
+        user_processing.discard(user_id)
         
     try:
         await sent_msg.edit_text("✅ Данные успешно распознаны!")
@@ -482,6 +515,11 @@ async def process_contract_end(message: types.Message, state: FSMContext):
     if not _validate_date(val):
         await message.answer("❌ Формат: ДД.ММ.ГГГГ (например, 30.11.2026):")
         return
+    state_data = await state.get_data()
+    start_date = str(state_data.get("contract_date") or "")
+    if not utils.dates_are_ordered(start_date, val):
+        await message.answer("❌ Дата окончания не может быть раньше даты начала.")
+        return
     await state.update_data(contract_end_date=val)
 
     state_data = await state.get_data()
@@ -576,10 +614,15 @@ async def cb_start_processing(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("gen_"))
 async def cb_generate(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
+    if user_id in user_generation:
+        await callback.answer("Генерация уже выполняется.")
+        return
+    user_generation.add(user_id)
     state_data = await state.get_data()
     data = state_data.get("extracted_data")
 
     if not data:
+        user_generation.discard(user_id)
         await callback.message.answer(
             "⚠️ Данные не найдены или устарели. Загрузите документы заново."
         )
@@ -606,10 +649,13 @@ async def cb_generate(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.answer_document(FSInputFile(patent_path))
 
     except Exception as e:
-        await callback.message.answer(f"❌ Ошибка при генерации: {e}")
+        await callback.message.answer("❌ Не удалось сформировать документ. Попробуйте еще раз.")
         config.logger.error("cb_generate failed", exc_info=True)
-
-    await callback.answer()
+    else:
+        await state.clear()
+    finally:
+        user_generation.discard(user_id)
+        await callback.answer()
 
 # ---------------------------------------------------------------------------
 # Supply Contract Flow
@@ -633,21 +679,33 @@ async def supply_contract_type(callback: types.CallbackQuery, state: FSMContext)
 @router.message(SupplyFlow.waiting_for_start_date)
 async def supply_start_date(message: types.Message, state: FSMContext):
     if message.text.strip().lower() == "🔙 отмена":
-        await state.clear()
+        await _reset_user_session(message.from_user.id, state)
         await message.answer("❌ Операция отменена. Возврат в главное меню.", reply_markup=types.ReplyKeyboardRemove())
         return
-    await state.update_data(contract_start_date=message.text.strip())
+    value = message.text.strip()
+    if not _validate_date(value):
+        await message.answer("❌ Введите реальную дату в формате ДД.ММ.ГГГГ.")
+        return
+    await state.update_data(contract_start_date=value)
     await message.answer("📅 Введите срок окончания договора поставки (например, 31.12.2026):", reply_markup=_get_cancel_kb())
     await state.set_state(SupplyFlow.waiting_for_end_date)
 
 @router.message(SupplyFlow.waiting_for_end_date)
 async def supply_end_date(message: types.Message, state: FSMContext):
     if message.text.strip().lower() == "🔙 отмена":
-        await state.clear()
+        await _reset_user_session(message.from_user.id, state)
         await message.answer("❌ Операция отменена. Возврат в главное меню.", reply_markup=types.ReplyKeyboardRemove())
         return
-    await state.update_data(contract_end_date=message.text.strip())
+    value = message.text.strip()
+    if not _validate_date(value):
+        await message.answer("❌ Введите реальную дату в формате ДД.ММ.ГГГГ.")
+        return
     
+    data = await state.get_data()
+    if not utils.dates_are_ordered(data.get("contract_start_date", ""), value):
+        await message.answer("❌ Дата окончания не может быть раньше даты начала.")
+        return
+    await state.update_data(contract_end_date=value)
     data = await state.get_data()
     extracted = data["extracted_data"]
     extracted["contract_type"] = data["contract_type"]

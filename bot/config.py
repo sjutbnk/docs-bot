@@ -38,6 +38,12 @@ logger = logging.getLogger("auto-docs-bot")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
+ADMIN_USER_IDS = {
+    int(value.strip())
+    for value in os.environ.get("ADMIN_USER_IDS", "").split(",")
+    if value.strip().isdigit()
+}
+
 # ---------------------------------------------------------------------------
 # Filesystem paths
 # ---------------------------------------------------------------------------
