@@ -33,6 +33,7 @@ class DocumentFlow(StatesGroup):
 
 
 class SupplyFlow(StatesGroup):
+    waiting_for_contract_type = State()  # с НДС / без НДС
     waiting_for_start_date   = State()   # дата начала договора
     waiting_for_end_date     = State()   # дата окончания договора
 
@@ -377,8 +378,15 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
     # --- Supply contract mode: ask for start date ---
     if mode == "supply":
         await state.update_data(extracted_data=data)
-        await reply_to.answer("📅 Введите дату начала договора поставки (например, 08.06.2026):", reply_markup=_get_cancel_kb())
-        await state.set_state(SupplyFlow.waiting_for_start_date)
+        builder = InlineKeyboardBuilder()
+        builder.button(text="С НДС", callback_data="supply_type_vat")
+        builder.button(text="Без НДС", callback_data="supply_type_no_vat")
+        builder.adjust(2)
+        await reply_to.answer(
+            "📄 Выберите форму договора поставки:",
+            reply_markup=builder.as_markup(),
+        )
+        await state.set_state(SupplyFlow.waiting_for_contract_type)
         return
 
     await state.update_data(extracted_data=data)
@@ -607,6 +615,21 @@ async def cb_generate(callback: types.CallbackQuery, state: FSMContext):
 # Supply Contract Flow
 # ---------------------------------------------------------------------------
 
+@router.callback_query(F.data.in_({"supply_type_vat", "supply_type_no_vat"}))
+async def supply_contract_type(callback: types.CallbackQuery, state: FSMContext):
+    contract_type = "vat" if callback.data == "supply_type_vat" else "no_vat"
+    await state.update_data(contract_type=contract_type)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await callback.message.answer(
+        "📅 Введите дату начала договора поставки (например, 08.06.2026):",
+        reply_markup=_get_cancel_kb(),
+    )
+    await state.set_state(SupplyFlow.waiting_for_start_date)
+    await callback.answer()
+
 @router.message(SupplyFlow.waiting_for_start_date)
 async def supply_start_date(message: types.Message, state: FSMContext):
     if message.text.strip().lower() == "🔙 отмена":
@@ -627,6 +650,7 @@ async def supply_end_date(message: types.Message, state: FSMContext):
     
     data = await state.get_data()
     extracted = data["extracted_data"]
+    extracted["contract_type"] = data["contract_type"]
     extracted["contract_start_date"] = data["contract_start_date"]
     extracted["contract_end_date"] = data["contract_end_date"]
     

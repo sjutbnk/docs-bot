@@ -37,6 +37,12 @@ def _short(full_name: str) -> str:
     return utils.get_short_name(full_name)
 
 
+def _ip_signature(full_name: str) -> str:
+    """Return the signature label for an individual entrepreneur/farmer."""
+    short_name = _short(full_name)
+    return f"ИП {short_name}" if short_name else "ИП"
+
+
 def format_supply_date(date_str: str) -> str:
     if not date_str:
         return ""
@@ -69,7 +75,15 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
     Fill template_supply_contract.docx with supplier/buyer data and save to output_dir.
     Returns the path to the generated file.
     """
-    tpl_path = os.path.join(config.TEMPLATES_DIR, "template_supply_contract.docx")
+    contract_type = str(data.get("contract_type") or "no_vat").strip().lower()
+    template_names = {
+        "vat": "template_supply_contract_vat.docx",
+        "no_vat": "template_supply_contract_no_vat.docx",
+    }
+    tpl_path = os.path.join(
+        config.TEMPLATES_DIR,
+        template_names.get(contract_type, template_names["no_vat"]),
+    )
     if not os.path.exists(tpl_path):
         raise FileNotFoundError(
             "Шаблон договора поставки не найден. Пожалуйста, отправьте файл через бота."
@@ -110,9 +124,9 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         s_sign_name = _short(s_fio)
         s_ogrn_label = "ОГРНИП"
         if "глава крестьянского" in s_name.lower() or "гкфх" in s_name.lower():
-            s_sign_org = f"ИП ГКФХ {s_sign_name}"
+            s_sign_org = _ip_signature(s_fio)
         else:
-            s_sign_org = f"ИП {s_sign_name}"
+            s_sign_org = _ip_signature(s_fio)
 
     if b_type in ("ЮРЛИЦО", "ЮрЛицо".upper()):
         b_title = f'ООО "{b_fio}"'
@@ -138,9 +152,9 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         b_sign_name = _short(b_fio)
         b_ogrn_label = "ОГРНИП"
         if "глава крестьянского" in b_name.lower() or "гкфх" in b_name.lower():
-            b_sign_org = f"ИП ГКФХ {b_sign_name}"
+            b_sign_org = _ip_signature(b_fio)
         else:
-            b_sign_org = f"ИП {b_sign_name}"
+            b_sign_org = _ip_signature(b_fio)
 
     context = {
         # Вводный абзац (шапка договора)
@@ -190,6 +204,7 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
 
     safe_s = re.sub(r"[^\w\s-]", "", s_fio).replace(" ", "_")
     safe_b = re.sub(r"[^\w\s-]", "", b_fio).replace(" ", "_")
-    output_path = os.path.join(output_dir, f"Договор_поставки_{safe_s}_{safe_b}.docx")
+    suffix = "с_НДС" if contract_type == "vat" else "без_НДС"
+    output_path = os.path.join(output_dir, f"Договор_поставки_{suffix}_{safe_s}_{safe_b}.docx")
     doc.save(output_path)
     return output_path
