@@ -77,7 +77,8 @@ def _cleanup_user_files(user_id: int):
 
 async def _reset_user_session(user_id: int, state: FSMContext):
     await state.clear()
-    _cleanup_user_files(user_id)
+    if user_id not in user_processing:
+        _cleanup_user_files(user_id)
     user_mode.pop(user_id, None)
     user_processing.discard(user_id)
     user_generation.discard(user_id)
@@ -398,6 +399,13 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
         return
     finally:
         anim_task.cancel()
+        for path in files:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                config.logger.warning("Could not remove processed file %s", path, exc_info=True)
         # Always clear files and last-message pointer after attempt
         user_files[user_id] = []
         user_last_msg[user_id] = None
