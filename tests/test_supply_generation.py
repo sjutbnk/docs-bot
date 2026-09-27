@@ -55,6 +55,9 @@ def test_supply_contract_templates_generate_documents(tmp_path, monkeypatch):
         with zipfile.ZipFile(output_path) as document:
             assert "[Content_Types].xml" in document.namelist()
             assert "word/document.xml" in document.namelist()
+            xml = document.read("word/document.xml").decode("utf-8")
+            assert "{{" not in xml
+            assert "supplier_party_intro" not in xml
 
 
 def test_supply_dates_require_real_ordered_calendar_dates():
