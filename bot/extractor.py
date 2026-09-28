@@ -97,6 +97,14 @@ def _generate_with_fallback(client, contents):
                 last_exception = e
                 err_str = str(e)
                 config.logger.warning(f"Model {model_name} attempt {attempt + 1} failed: {err_str}")
+                if any(marker in err_str.lower() for marker in (
+                    "401", "403", "unauthenticated", "invalid authentication credentials",
+                    "api key not valid", "permission_denied",
+                )):
+                    raise ValueError(
+                        "Gemini отклонил API-ключ. Проверьте GEMINI_API_KEY в .env на VPS. "
+                        "Если ключ меняли, пересоздайте контейнер после обновления .env."
+                    ) from e
                 if _is_transient(err_str) and attempt < 2:
                     delay = retry_delays[attempt]
                     config.logger.info(f"Transient error — retrying in {delay}s...")

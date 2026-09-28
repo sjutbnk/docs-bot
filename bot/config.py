@@ -38,6 +38,14 @@ logger = logging.getLogger("auto-docs-bot")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
+
+def validate_runtime_secrets():
+    """Fail fast for credentials that cannot be sent to their respective APIs."""
+    if not BOT_TOKEN or ":" not in BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN отсутствует или имеет неверный формат")
+    if not GEMINI_API_KEY or any(char.isspace() for char in GEMINI_API_KEY):
+        raise RuntimeError("GEMINI_API_KEY отсутствует или содержит пробелы")
+
 ADMIN_USER_IDS = {
     int(value.strip())
     for value in os.environ.get("ADMIN_USER_IDS", "").split(",")

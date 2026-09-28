@@ -389,6 +389,8 @@ async def _process_user_files(user_id: int, reply_to: types.Message, state: FSMC
         err = str(e)
         if "429" in err or "quota" in err.lower() or "exhausted" in err.lower():
             msg = "❌ Лимит запросов к нейросети исчерпан. Попробуйте снова через несколько минут."
+        elif "401" in err or "403" in err or "GEMINI_API_KEY" in err:
+            msg = "❌ Gemini не принял API-ключ. Администратор должен проверить GEMINI_API_KEY на сервере."
         elif "503" in err or "unavailable" in err.lower() or "overloaded" in err.lower():
             msg = "❌ Серверы нейросети перегружены (бот уже пытался повторить несколько раз). Попробуйте снова через 2–3 минуты."
         else:

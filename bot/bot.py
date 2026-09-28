@@ -7,14 +7,10 @@ import config
 from handlers import router
 
 async def main():
-    if not config.BOT_TOKEN:
-        print("\n❌ ОШИБКА: Переменная BOT_TOKEN не задана!")
-        print("Создайте файл .env в корне проекта: BOT_TOKEN=ваш_токен")
-        return
-
-    if not config.GEMINI_API_KEY:
-        print("\n❌ ОШИБКА: Переменная GEMINI_API_KEY не задана!")
-        print("Создайте файл .env в корне проекта: GEMINI_API_KEY=ваш_ключ")
+    try:
+        config.validate_runtime_secrets()
+    except RuntimeError as exc:
+        config.logger.error("Invalid runtime configuration: %s", exc)
         return
         
     bot = Bot(token=config.BOT_TOKEN)
