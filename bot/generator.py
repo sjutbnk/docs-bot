@@ -9,6 +9,8 @@ import utils
 from docx_populator import (
     fill_conclusion_document,
     fill_termination_document,
+    fill_new_conclusion_document,
+    fill_new_termination_document,
     fill_patent_notification_document,
 )
 
@@ -123,16 +125,30 @@ def generate_documents(data: dict, output_dir: str) -> tuple:
     doc_c.save(contract_path)
 
     # ── Conclusion notification (grid-fill) ─────────────────────────────────
-    tpl_concl = os.path.join(config.TEMPLATES_DIR, "template_conclusion.docx")
+    tpl_concl_new = os.path.join(config.TEMPLATES_DIR, "template_conclusion_new.docx")
+    tpl_concl = (
+        tpl_concl_new if os.path.exists(tpl_concl_new)
+        else os.path.join(config.TEMPLATES_DIR, "template_conclusion.docx")
+    )
     doc_concl = docx.Document(tpl_concl)
-    fill_conclusion_document(doc_concl, data)
+    if tpl_concl == tpl_concl_new:
+        fill_new_conclusion_document(doc_concl, data)
+    else:
+        fill_conclusion_document(doc_concl, data)
     conclusion_path = os.path.join(output_dir, f"Уведомление_прием_{safe_name}.docx")
     doc_concl.save(conclusion_path)
 
     # ── Termination notification (grid-fill) ────────────────────────────────
-    tpl_term = os.path.join(config.TEMPLATES_DIR, "template_termination.docx")
+    tpl_term_new = os.path.join(config.TEMPLATES_DIR, "template_termination_new.docx")
+    tpl_term = (
+        tpl_term_new if os.path.exists(tpl_term_new)
+        else os.path.join(config.TEMPLATES_DIR, "template_termination.docx")
+    )
     doc_term = docx.Document(tpl_term)
-    fill_termination_document(doc_term, data)
+    if tpl_term == tpl_term_new:
+        fill_new_termination_document(doc_term, data)
+    else:
+        fill_termination_document(doc_term, data)
     termination_path = os.path.join(output_dir, f"Уведомление_расторжение_{safe_name}.docx")
     doc_term.save(termination_path)
 

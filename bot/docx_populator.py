@@ -157,37 +157,150 @@ def _fill_conclusion_employee_fields(doc, data: dict):
     phone = "".join(c for c in str(data.get("phone") or "") if c.isdigit())
     _fill_grid(doc.tables[21], 0, 1, 11, phone)
 
-    _fill_grid(doc.tables[22], 0, 1, 33, surname)
-    _fill_grid(doc.tables[23], 0, 1, 33, first_name)
-    _fill_grid(doc.tables[24], 0, 1, 33, patronymic)
-    _fill_grid(doc.tables[24], 1, 1, 33, "")
+    _fill_grid(doc.tables[22], 0, 1, 28, surname)
+    _fill_grid(doc.tables[23], 0, 1, 28, first_name)
+    _fill_grid(doc.tables[24], 0, 1, 28, patronymic)
+    _fill_grid(doc.tables[24], 1, 1, 28, "")
 
-    _fill_grid(doc.tables[25], 0, 1, 33, data.get("citizenship") or "")
+    _fill_grid(doc.tables[25], 0, 1, 27, data.get("citizenship") or "")
 
     _fill_date(doc.tables[26], 0, data.get("birth_date") or "", *mappings.DOB_CELLS)
+    birth_row = _unique_cells(doc.tables[26].rows[0])
+    if len(birth_row) > 12:
+        _set_cell_text(birth_row[12], "")
 
     # Conclusion Passport Table is 28
     _fill_grid(doc.tables[28], 0, 1, 7, data.get("passport_series") or "")
     _fill_grid(doc.tables[28], 0, 9, 9, data.get("passport_number") or "")
     _fill_date(doc.tables[28], 0, data.get("passport_issue_date") or "", *mappings.CONCL_PASSPORT_DATE_CELLS)
+    if len(doc.tables) > 27:
+        _fill_grid(doc.tables[27], 0, 1, 19, data.get("passport_document_name") or "ПАСПОРТ")
 
     issued = utils.clean_passport_issued_by(data.get("passport_issued_by") or "")
     issued_upper = issued.upper()
-    _fill_grid(doc.tables[29], 0, 1, 33, issued_upper[:33])
-    _fill_grid(doc.tables[30], 0, 0, 33, issued_upper[33:66])
-    _fill_grid(doc.tables[31], 0, 0, 33, issued_upper[66:99])
+    _fill_grid(doc.tables[29], 0, 1, 28, issued_upper[:28])
+    _fill_grid(doc.tables[30], 0, 0, 28, issued_upper[28:56])
+    _fill_grid(doc.tables[31], 0, 0, 13, issued_upper[56:69])
 
     # Conclusion Patent Table is 33
     _fill_grid(doc.tables[33], 1, 1, 7, data.get("patent_series") or "")
     _fill_grid(doc.tables[33], 1, 9, 10, data.get("patent_number") or "")
     _fill_date(doc.tables[33], 1, data.get("patent_issue_date") or "", *mappings.CONCL_PATENT_DATE_CELLS)
+    _fill_grid(doc.tables[32], 0, 1, 22, data.get("patent_document_name") or "ПАТЕНТ")
+    patent_issued = str(data.get("patent_issued_by") or "").upper()
+    _fill_grid(doc.tables[34], 0, 1, 27, patent_issued[:27])
+    _fill_grid(doc.tables[35], 0, 0, 33, patent_issued[27:60])
 
     # Conclusion Patent Validity Table is 36
     _fill_date(doc.tables[36], 0, data.get("patent_issue_date") or "", *mappings.CONCL_PATENT_VALIDITY_START_CELLS)
     _fill_date(doc.tables[36], 0, data.get("patent_expiry_date") or "", *mappings.CONCL_PATENT_VALIDITY_END_CELLS)
 
     # Profession
-    _fill_grid(doc.tables[41], 0, 0, 33, str(data.get("profession") or "Овощевод").upper())
+    _fill_grid(doc.tables[41], 0, 0, 34, str(data.get("profession") or "Овощевод").upper())
+
+
+def _fill_new_form_employer(doc, data: dict, signature_table: int):
+    """Fill employer fields on the 2026 МВД appendix forms, replacing sample data."""
+    emp_type = str(data.get("employer_type") or "ИП").strip().upper()
+    emp_name = str(data.get("employer_name") or "").upper()
+    emp_addr = str(data.get("employer_address") or "").upper()
+
+    cells_t4 = _unique_cells(doc.tables[4].rows[0])
+    cells_t5 = _unique_cells(doc.tables[5].rows[0])
+    if cells_t4:
+        _set_cell_text(cells_t4[0], "X" if emp_type != "ИП" else "")
+    if cells_t5:
+        _set_cell_text(cells_t5[0], "X" if emp_type == "ИП" else "")
+
+    _fill_grid(doc.tables[8], 1, 1, 7, "01.13.2")
+
+    name_rows = [(9, 0), (10, 0), (11, 0)]
+    for table_idx, row_idx in name_rows:
+        _fill_grid(doc.tables[table_idx], row_idx, 0, 34, "")
+    for chunk, (table_idx, row_idx) in enumerate(name_rows):
+        _fill_grid(doc.tables[table_idx], row_idx, 0, 34, emp_name[chunk * 34:(chunk + 1) * 34])
+
+    for table_idx in (12, 13, 14):
+        _fill_grid(doc.tables[table_idx], 0, 0, 34, "")
+    ogrn_table = 14 if emp_type == "ИП" else 12
+    _fill_grid(doc.tables[ogrn_table], 0, 0, 34, str(data.get("employer_ogrn") or ""))
+
+    _fill_grid(doc.tables[15], 0, 0, 34, "")
+    for row_idx in range(len(doc.tables[16].rows)):
+        _fill_grid(doc.tables[16], row_idx, 0, 34, "")
+    if emp_type == "ИП":
+        pass_str = "ПАСПОРТ {} {} {} {}Г.".format(
+            data.get("employer_passport_series") or "",
+            data.get("employer_passport_number") or "",
+            data.get("employer_passport_issued_by") or "",
+            data.get("employer_passport_issue_date") or "",
+        ).strip().upper()
+        chunks = [pass_str[i:i + 34] for i in range(0, len(pass_str), 34)]
+        if chunks:
+            _fill_grid(doc.tables[15], 0, 0, 34, chunks[0])
+        for row_idx in range(len(doc.tables[16].rows)):
+            if row_idx + 1 < len(chunks):
+                _fill_grid(doc.tables[16], row_idx, 0, 34, chunks[row_idx + 1])
+
+    _fill_grid(doc.tables[17], 0, 0, 34, str(data.get("employer_inn") or ""))
+    for idx, chunk in zip((18, 19, 20), range(3)):
+        _fill_grid(doc.tables[idx], 0, 0, 34, emp_addr[chunk * 34:(chunk + 1) * 34])
+
+    signature = _unique_cells(doc.tables[signature_table].rows[0])
+    if len(signature) >= 3:
+        pure_fio = utils.extract_employer_fio(data.get("employer_name") or "")
+        if emp_type == "ИП":
+            _set_cell_text(signature[0], "ИП")
+            _set_cell_text(signature[2], utils.get_short_name(pure_fio).upper())
+        else:
+            director = str(data.get("employer_director") or "").strip()
+            _set_cell_text(signature[0], f'ДИРЕКТОР ООО "{pure_fio.upper()}"')
+            _set_cell_text(signature[2], utils.get_short_name(director).upper())
+
+
+def fill_new_conclusion_document(doc, data: dict):
+    """Populate the clean 2026 Appendix 7 notification of contract conclusion."""
+    _fill_new_form_employer(doc, data, signature_table=54)
+    _fill_conclusion_employee_fields(doc, data)
+    work_addr = str(data.get("work_address") or data.get("employer_address") or "").upper()
+    for row_idx in range(5):
+        _fill_grid(doc.tables[49 + row_idx], 0, 0, 34, work_addr[row_idx * 34:(row_idx + 1) * 34])
+
+    _set_cell_text(doc.tables[45].rows[0].cells[0], "V")
+    c_date = str(data.get("contract_date") or "")
+    _fill_date(doc.tables[46], 1, c_date, *mappings.CONCL_CONTRACT_DATE_CELLS)
+    parts = c_date.split(".")
+    if len(parts) == 3:
+        cells = _unique_cells(doc.tables[55].rows[0])
+        for idx, value in zip((1, 3, 5), (parts[0], parts[1], parts[2][2:])):
+            if idx < len(cells):
+                _set_cell_text(cells[idx], value)
+
+
+def fill_new_termination_document(doc, data: dict):
+    """Populate the 2026 Appendix 8 termination notice and clear sample fields."""
+    _fill_new_form_employer(doc, data, signature_table=49)
+    _fill_conclusion_employee_fields(doc, data)
+    contract_cells = _unique_cells(doc.tables[45].rows[0])
+    if len(contract_cells) >= 3:
+        _set_cell_text(contract_cells[0], "V")
+        _set_cell_text(contract_cells[2], "")
+
+    end_date = str(data.get("contract_end_date") or "")
+    _fill_date(doc.tables[46], 1, end_date, *mappings.CONCL_CONTRACT_DATE_CELLS)
+
+    reason_cells = _unique_cells(doc.tables[48].rows[0])
+    reason_is_employee = bool(data.get("termination_employee_initiative"))
+    if len(reason_cells) >= 4:
+        _set_cell_text(reason_cells[1], "X" if reason_is_employee else "")
+        _set_cell_text(reason_cells[3], "" if reason_is_employee else "X")
+
+    parts = end_date.split(".")
+    if len(parts) == 3:
+        cells = _unique_cells(doc.tables[50].rows[0])
+        for idx, value in zip((1, 3, 5), (parts[0], parts[1], parts[2][2:])):
+            if idx < len(cells):
+                _set_cell_text(cells[idx], value)
 
 
 # ---------------------------------------------------------------------------
@@ -265,14 +378,20 @@ def _fill_conclusion_employer_block(doc, data: dict, is_termination: bool = Fals
         _fill_grid(doc.tables[19], 0, 0, 34, emp_addr[34:68])
         _fill_grid(doc.tables[20], 0, 0, 34, emp_addr[68:102])
 
-        # Place of activity/work address (T47, T48) — ONLY in conclusion template!
-        if not is_termination:
-            work_addr = str(data.get("work_address") or data.get("employer_address") or "").upper()
+        # Place of activity/work address. The revised conclusion form stores it
+        # in the same section but uses two character grids instead of the old
+        # 34-cell rows. Keep termination on its original layout.
+        work_addr = str(data.get("work_address") or data.get("employer_address") or "").upper()
+        if not is_termination and len(doc.tables) >= 58:
+            _fill_grid(doc.tables[47], 1, 1, 10, work_addr[:10])
+            _fill_grid(doc.tables[47], 1, 12, 10, work_addr[10:20])
+        elif not is_termination:
             _fill_grid(doc.tables[47], 0, 0, 34, work_addr[:34])
             _fill_grid(doc.tables[48], 0, 0, 34, work_addr[34:68])
 
-        # Bottom signature (T49)
-        cells49 = _unique_cells(doc.tables[49].rows[0])
+        # Bottom signature (old T49 or revised T54)
+        signature_idx = 54 if not is_termination and len(doc.tables) >= 58 else 49
+        cells49 = _unique_cells(doc.tables[signature_idx].rows[0])
         if len(cells49) >= 3:
             if emp_type == "ИП":
                 pure_fio = utils.extract_employer_fio(data.get("employer_name") or "")

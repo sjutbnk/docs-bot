@@ -31,6 +31,7 @@ class DocumentFlow(StatesGroup):
     waiting_for_dms_number  = State()
     waiting_for_dms_issue_date = State()
     waiting_for_dms_date    = State()
+    waiting_for_termination_reason = State()
 
 
 class SupplyFlow(StatesGroup):
@@ -623,6 +624,26 @@ async def cb_start_processing(callback: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("gen_"))
 async def cb_generate(callback: types.CallbackQuery, state: FSMContext):
+    action = callback.data
+    state_data = await state.get_data()
+    if action in ("gen_termination", "gen_all") and "termination_employee_initiative" not in state_data:
+        builder = InlineKeyboardBuilder()
+        builder.button(text="Да", callback_data="termination_reason_yes")
+        builder.button(text="Нет", callback_data="termination_reason_no")
+        builder.button(text="Отмена", callback_data="termination_reason_cancel")
+        builder.adjust(2, 1)
+        await state.update_data(pending_generation_action=action)
+        await state.set_state(DocumentFlow.waiting_for_termination_reason)
+        await callback.message.answer(
+            "Договор прекращен по инициативе иностранного гражданина?",
+            reply_markup=builder.as_markup(),
+        )
+        await callback.answer()
+        return
+    await _generate_documents_for_action(callback, state, action)
+
+
+async def _generate_documents_for_action(callback: types.CallbackQuery, state: FSMContext, action: str):
     user_id = callback.from_user.id
     if user_id in user_generation:
         await callback.answer("Генерация уже выполняется.")
@@ -645,7 +666,6 @@ async def cb_generate(callback: types.CallbackQuery, state: FSMContext):
         out_dir = os.path.join(config.OUTPUT_DIR, str(user_id))
         os.makedirs(out_dir, exist_ok=True)
 
-        action = callback.data
         contract_path, conclusion_path, termination_path, patent_path = \
             generator.generate_documents(data, out_dir)
 
@@ -666,6 +686,31 @@ async def cb_generate(callback: types.CallbackQuery, state: FSMContext):
     finally:
         user_generation.discard(user_id)
         await callback.answer()
+
+
+@router.callback_query(F.data.in_({
+    "termination_reason_yes", "termination_reason_no", "termination_reason_cancel"
+}))
+async def cb_termination_reason(callback: types.CallbackQuery, state: FSMContext):
+    if callback.data == "termination_reason_cancel":
+        await state.clear()
+        await callback.message.edit_reply_markup(reply_markup=None)
+        await callback.message.answer("Генерация отменена. Загрузите документы заново, чтобы начать.")
+        await callback.answer()
+        return
+
+    state_data = await state.get_data()
+    action = state_data.get("pending_generation_action")
+    if action not in ("gen_termination", "gen_all"):
+        await callback.answer("Сценарий устарел. Сформируйте данные заново.", show_alert=True)
+        await state.clear()
+        return
+
+    await state.update_data(
+        termination_employee_initiative=(callback.data == "termination_reason_yes")
+    )
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await _generate_documents_for_action(callback, state, action)
 
 # ---------------------------------------------------------------------------
 # Supply Contract Flow

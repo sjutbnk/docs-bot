@@ -34,3 +34,8 @@ CONCL_PATENT_DATE_CELLS = ([21, 22], [24, 25], [27, 28, 29, 30], [23, 26])
 CONCL_PATENT_VALIDITY_START_CELLS = ([1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
 CONCL_PATENT_VALIDITY_END_CELLS = ([12, 13], [15, 16], [18, 19, 20, 21], [14, 17])
 CONCL_CONTRACT_DATE_CELLS = ([1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
+
+# Appendix 7/8 revision dated 12.05.2026. The revised blank keeps the
+# employee section at the same table indexes but moves the employer activity
+# address and the contract date grid to wider, dedicated tables.
+NEW_CONCL_CONTRACT_DATE_CELLS = ([1, 2], [4, 5], [7, 8, 9, 10], [3, 6])
