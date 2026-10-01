@@ -18,9 +18,19 @@ def _acting_basis(entity_type: str, director: str,
     t = (entity_type or "ИП").strip().upper()
     if t == "ЮрЛицо".upper() or t == "ЮРЛИЦО":
         return "действующего на основании Устава"
-    if ogrn:
-        return f"действующий на основании ОГРНИП {ogrn}"
-    return "действующий на основании государственной регистрации"
+    else:
+        parts = []
+        if passport_series or passport_number:
+            parts.append(
+                f"паспорт {passport_series} {passport_number}".strip()
+            )
+        if passport_issued_by:
+            parts.append(f"выдан {passport_issued_by}")
+        if passport_issue_date:
+            parts.append(passport_issue_date)
+        if ogrn:
+            parts.append(f"ОГРНИП {ogrn}")
+        return ", ".join(parts) if parts else "действующего на основании ОГРНИП"
 
 
 def _short(full_name: str) -> str:
@@ -33,15 +43,12 @@ def _ip_signature(full_name: str) -> str:
     return f"ИП {short_name}" if short_name else "ИП"
 
 
-def _party_intro(entity_type: str, fio: str, director: str = "", raw_name: str = "") -> str:
+def _party_intro(entity_type: str, fio: str, director: str = "") -> str:
     """Build the full party wording used in the supplied contract forms."""
     if (entity_type or "ИП").strip().upper() in ("ЮРЛИЦО", "ЮРЛИЦО"):
         director = director.strip()
         director_part = f", в лице Директора {director}" if director else ""
         return f'Общество с ограниченной ответственностью "{fio}"{director_part}'
-    raw_lower = raw_name.lower()
-    if "глава крестьянского" in raw_lower or "гкфх" in raw_lower or "глава кфх" in raw_lower:
-        return f"Индивидуальный предприниматель глава крестьянского (фермерского) хозяйства {fio}"
     return f"Индивидуальный предприниматель {fio}"
 
 
@@ -167,22 +174,16 @@ def generate_supply_contract(data: dict, output_dir: str) -> str:
         else:
             b_sign_org = _ip_signature(b_fio)
 
-    supplier_party_intro = _party_intro(
-        s_type, s_fio, s_rep, str(data.get("supplier_name") or "")
-    )
-    buyer_party_intro = _party_intro(
-        b_type, b_fio, b_rep, str(data.get("buyer_name") or "")
-    )
+    supplier_party_intro = _party_intro(s_type, s_fio, s_rep if s_type in ("ЮРЛИЦО", "ЮРЛИЦО") else "")
+    buyer_party_intro = _party_intro(b_type, b_fio, b_rep if b_type in ("ЮРЛИЦО", "ЮРЛИЦО") else "")
 
     context = {
         # Вводный абзац (шапка договора)
         "supplier_intro":       str(data.get("supplier_name") or s_title).strip(),
         "supplier_party_intro": supplier_party_intro,
-        "supplier_designation": "именуемое" if s_type == "ЮРЛИЦО" else "именуемый",
         "supplier_basis":       s_basis,
         "buyer_intro":          str(data.get("buyer_name") or b_title).strip(),
         "buyer_party_intro":    buyer_party_intro,
-        "buyer_designation":    "именуемое" if b_type == "ЮРЛИЦО" else "именуемый",
 
         # Сроки (из FSM)
         "contract_start_date":  format_supply_date(str(data.get("contract_start_date") or "")),

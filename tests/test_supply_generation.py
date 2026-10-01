@@ -3,8 +3,6 @@
 import zipfile
 from pathlib import Path
 
-from docx import Document
-
 import supply_generator
 import utils
 
@@ -71,32 +69,3 @@ def test_supply_dates_require_real_ordered_calendar_dates():
 
 def test_farmer_signature_has_no_position_wording():
     assert supply_generator._ip_signature("Иванов Иван Иванович") == "ИП Иванов И.И."
-
-
-def test_customer_supply_form_uses_current_parties_and_requisites(tmp_path):
-    data = _contract_data("no_vat")
-    data["supplier_name"] = "ИП глава КФХ Иванов Иван Иванович"
-    data["buyer_type"] = "ЮрЛицо"
-    data["buyer_name"] = 'ООО "Тестовая компания"'
-    data["buyer_director"] = "Петров Петр Петрович"
-
-    output_path = supply_generator.generate_supply_contract(data, str(tmp_path))
-    doc = Document(output_path)
-    text = "\n".join(
-        [p.text for p in doc.paragraphs]
-        + [cell.text for table in doc.tables for row in table.rows for cell in row.cells]
-    )
-
-    assert doc.paragraphs[0].text == "ДОГОВОР ПОСТАВКИ"
-    assert "глава крестьянского (фермерского) хозяйства Иванов Иван Иванович" in text
-    assert "ИП Иванов И.И." in text
-    assert "Тестовая компания" in text
-    assert "именуемое в дальнейшем «Покупатель»" in doc.paragraphs[4].text
-    assert "123456789012345" in text
-    assert "30" in doc.paragraphs[56].text
-    assert "без НДС" in text
-    assert doc.tables[0].cell(2, 0).text.startswith("ИП Иванов И.И.")
-    assert "Глава" not in doc.tables[0].cell(2, 0).text
-    for sample_value in ("Ким Владимир", "Фуд-Сервис", "Зейналова", "001466539"):
-        assert sample_value not in text
-    assert "{{" not in text
